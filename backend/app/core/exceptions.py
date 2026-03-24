@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.response import error_response
@@ -24,6 +25,24 @@ def register_exception_handlers(app: FastAPI) -> None:
         body = error_response(message="Validation error", details=exc.errors())
         return JSONResponse(
             status_code=422,
+            content={"success": body["success"], "data": body["data"], "error": body["error"]},
+        )
+
+    @app.exception_handler(OperationalError)
+    async def db_operational_error_handler(_: Request, exc: OperationalError) -> JSONResponse:
+        logger.exception("Database operational error", exc_info=exc)
+        body = error_response(message="Database unavailable")
+        return JSONResponse(
+            status_code=503,
+            content={"success": body["success"], "data": body["data"], "error": body["error"]},
+        )
+
+    @app.exception_handler(SQLAlchemyError)
+    async def db_error_handler(_: Request, exc: SQLAlchemyError) -> JSONResponse:
+        logger.exception("Database error", exc_info=exc)
+        body = error_response(message="Database request failed")
+        return JSONResponse(
+            status_code=503,
             content={"success": body["success"], "data": body["data"], "error": body["error"]},
         )
 
