@@ -11,6 +11,15 @@ from app.core.response import error_response
 logger = logging.getLogger(__name__)
 
 
+def _iter_group_exceptions(exc: BaseException):
+    """Yield all nested exceptions from an exception group tree."""
+    if isinstance(exc, ExceptionGroup):
+        for inner in exc.exceptions:
+            yield from _iter_group_exceptions(inner)
+    else:
+        yield exc
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -43,6 +52,32 @@ def register_exception_handlers(app: FastAPI) -> None:
         body = error_response(message="Database request failed")
         return JSONResponse(
             status_code=503,
+            content={"success": body["success"], "data": body["data"], "error": body["error"]},
+        )
+
+    @app.exception_handler(ExceptionGroup)
+    async def exception_group_handler(_: Request, exc: ExceptionGroup) -> JSONResponse:
+        nested = list(_iter_group_exceptions(exc))
+        if any(isinstance(err, OperationalError) for err in nested):
+            logger.exception("Database operational error group", exc_info=exc)
+            body = error_response(message="Database unavailable")
+            return JSONResponse(
+                status_code=503,
+                content={"success": body["success"], "data": body["data"], "error": body["error"]},
+            )
+
+        if any(isinstance(err, SQLAlchemyError) for err in nested):
+            logger.exception("Database error group", exc_info=exc)
+            body = error_response(message="Database request failed")
+            return JSONResponse(
+                status_code=503,
+                content={"success": body["success"], "data": body["data"], "error": body["error"]},
+            )
+
+        logger.exception("Unhandled exception group", exc_info=exc)
+        body = error_response(message="Internal server error")
+        return JSONResponse(
+            status_code=500,
             content={"success": body["success"], "data": body["data"], "error": body["error"]},
         )
 
