@@ -143,6 +143,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - Document list with one-click AI classification action
 - RAG question panel to query a selected document
 
+## Authentication (Sprint 6 Backend)
+
+- JWT-based auth endpoints:
+  - `POST /api/v1/auth/register`
+  - `POST /api/v1/auth/login`
+  - `GET /api/v1/auth/me`
+- User-scoped access enforcement for documents, ETL, and AI endpoints
+- Password hashing and token expiry configuration via env vars:
+  - `AUTH_SECRET_KEY`
+  - `AUTH_ALGORITHM`
+  - `AUTH_ACCESS_TOKEN_EXP_MINUTES`
+
 ## Sprint Progress
 
 - [x] Sprint 1 - Project Setup & Architecture

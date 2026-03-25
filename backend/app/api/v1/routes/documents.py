@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.response import ok_response
+from app.core.security import get_current_user
+from app.models.user import User
 from app.schemas.document import DocumentCreate, DocumentRead, DocumentUpdate
 from app.services.document_service import DocumentService
 
@@ -15,17 +17,22 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 def create_document(
     payload: DocumentCreate,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     service = DocumentService()
-    document = service.create_document(db, payload)
+    payload_with_owner = payload.model_copy(update={"user_id": current_user.id})
+    document = service.create_document(db, payload_with_owner)
     body = ok_response(DocumentRead.model_validate(document).model_dump())
     return {"success": body["success"], "data": body["data"], "error": body["error"]}
 
 
 @router.get("", status_code=status.HTTP_200_OK)
-def list_documents(db: Annotated[Session, Depends(get_db)]) -> dict:
+def list_documents(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
     service = DocumentService()
-    documents = service.list_documents(db)
+    documents = service.list_documents(db, current_user.id)
     data = [DocumentRead.model_validate(doc).model_dump() for doc in documents]
     body = ok_response(data)
     return {"success": body["success"], "data": body["data"], "error": body["error"]}
@@ -36,11 +43,15 @@ def list_documents(db: Annotated[Session, Depends(get_db)]) -> dict:
     status_code=status.HTTP_200_OK,
     responses={404: {"description": "Document not found"}},
 )
-def get_document(document_id: int, db: Annotated[Session, Depends(get_db)]) -> dict:
+def get_document(
+    document_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
     service = DocumentService()
 
     try:
-        document = service.get_document(db, document_id)
+        document = service.get_document(db, document_id, current_user.id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -57,11 +68,12 @@ def update_document(
     document_id: int,
     payload: DocumentUpdate,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     service = DocumentService()
 
     try:
-        document = service.update_document(db, document_id, payload)
+        document = service.update_document(db, document_id, payload, current_user.id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -74,11 +86,15 @@ def update_document(
     status_code=status.HTTP_200_OK,
     responses={404: {"description": "Document not found"}},
 )
-def delete_document(document_id: int, db: Annotated[Session, Depends(get_db)]) -> dict:
+def delete_document(
+    document_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
     service = DocumentService()
 
     try:
-        service.delete_document(db, document_id)
+        service.delete_document(db, document_id, current_user.id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

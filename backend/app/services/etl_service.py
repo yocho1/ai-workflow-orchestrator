@@ -18,8 +18,8 @@ class EtlService:
         self.log_repository = log_repository or ProcessingLogRepository()
         self.pipeline = pipeline or DocumentEtlPipeline()
 
-    def run_document_etl(self, db: Session, document_id: int) -> DocumentEtlResult:
-        document = self.document_repository.get_by_id(db, document_id)
+    def run_document_etl(self, db: Session, document_id: int, user_id: int) -> DocumentEtlResult:
+        document = self.document_repository.get_by_id_for_user(db, document_id, user_id)
         if document is None:
             raise ValueError(f"Document {document_id} not found")
 
@@ -80,16 +80,16 @@ class EtlService:
         logs = self.log_repository.list_by_document(db, document.id)
         return self._to_result(document, logs)
 
-    def run_pending_documents(self, db: Session) -> list[int]:
+    def run_pending_documents(self, db: Session, user_id: int) -> list[int]:
         pending_docs = [
             d
-            for d in self.document_repository.list(db)
+            for d in self.document_repository.list_by_user(db, user_id)
             if d.processing_status in {"uploaded", "processing"}
         ]
 
         processed_ids: list[int] = []
         for document in pending_docs:
-            self.run_document_etl(db, document.id)
+            self.run_document_etl(db, document.id, user_id)
             processed_ids.append(document.id)
 
         return processed_ids

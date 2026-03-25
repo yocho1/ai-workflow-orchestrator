@@ -14,17 +14,17 @@ class DocumentService:
         db.commit()
         return document
 
-    def list_documents(self, db: Session) -> list[Document]:
-        return self.repository.list(db)
+    def list_documents(self, db: Session, user_id: int) -> list[Document]:
+        return self.repository.list_by_user(db, user_id)
 
-    def get_document(self, db: Session, document_id: int) -> Document:
-        document = self.repository.get_by_id(db, document_id)
+    def get_document(self, db: Session, document_id: int, user_id: int) -> Document:
+        document = self.repository.get_by_id_for_user(db, document_id, user_id)
         if document is None:
             raise ValueError(f"Document {document_id} not found")
         return document
 
-    def update_document(self, db: Session, document_id: int, payload: DocumentUpdate) -> Document:
-        document = self.repository.get_by_id(db, document_id)
+    def update_document(self, db: Session, document_id: int, payload: DocumentUpdate, user_id: int) -> Document:
+        document = self.repository.get_by_id_for_user(db, document_id, user_id)
         if document is None:
             raise ValueError(f"Document {document_id} not found")
 
@@ -32,8 +32,8 @@ class DocumentService:
         db.commit()
         return updated
 
-    def delete_document(self, db: Session, document_id: int) -> None:
-        document = self.repository.get_by_id(db, document_id)
+    def delete_document(self, db: Session, document_id: int, user_id: int) -> None:
+        document = self.repository.get_by_id_for_user(db, document_id, user_id)
         if document is None:
             raise ValueError(f"Document {document_id} not found")
 

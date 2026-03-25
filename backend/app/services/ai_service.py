@@ -22,8 +22,8 @@ class AiService:
         self.log_repository = log_repository or ProcessingLogRepository()
         self.openrouter_client = openrouter_client or OpenRouterClient()
 
-    def classify_document(self, db: Session, document_id: int) -> ClassificationResult:
-        document = self._get_document_or_raise(db, document_id)
+    def classify_document(self, db: Session, document_id: int, user_id: int) -> ClassificationResult:
+        document = self._get_document_or_raise(db, document_id, user_id)
         text = self._document_text(document)
 
         self.log_repository.create(
@@ -72,8 +72,8 @@ class AiService:
             updated_at=document.updated_at,
         )
 
-    def ask_document(self, db: Session, document_id: int, question: str) -> AskDocumentResult:
-        document = self._get_document_or_raise(db, document_id)
+    def ask_document(self, db: Session, document_id: int, question: str, user_id: int) -> AskDocumentResult:
+        document = self._get_document_or_raise(db, document_id, user_id)
         text = self._document_text(document)
         context = self._select_context(text=text, question=question)
 
@@ -114,8 +114,8 @@ class AiService:
             used_context_chars=len(context),
         )
 
-    def _get_document_or_raise(self, db: Session, document_id: int) -> Document:
-        document = self.document_repository.get_by_id(db, document_id)
+    def _get_document_or_raise(self, db: Session, document_id: int, user_id: int) -> Document:
+        document = self.document_repository.get_by_id_for_user(db, document_id, user_id)
         if document is None:
             raise ValueError(f"Document {document_id} not found")
         return document
