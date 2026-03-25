@@ -135,13 +135,21 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - Configure `OPENROUTER_API_KEY` and optional model settings in `.env`.
 - For local testing without external API calls, set `OPENROUTER_MOCK=true`.
 
+## Frontend Dashboard Expansion (Sprint 5)
+
+- Live document dashboard connected to backend APIs
+- Document creation form for quick text-based ingestion
+- KPI cards derived from current backend document data
+- Document list with one-click AI classification action
+- RAG question panel to query a selected document
+
 ## Sprint Progress
 
 - [x] Sprint 1 - Project Setup & Architecture
 - [x] Sprint 2 - Database & Core Models
 - [x] Sprint 3 - ETL Pipeline
 - [x] Sprint 4 - AI Integration (RAG + Classification)
-- [ ] Sprint 5 - Frontend Dashboard Expansion
+- [x] Sprint 5 - Frontend Dashboard Expansion
 - [ ] Sprint 6 - Auth & User Logic
 - [ ] Sprint 7 - QA & Evaluation
 - [ ] Sprint 8 - Polish & Production
