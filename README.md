@@ -97,6 +97,20 @@ npm install
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
+### One-Command Local Start/Stop (Windows PowerShell)
+
+From repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
+```
+
+To stop local services by port:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
+```
+
 ## API Conventions (Implemented from Sprint 1)
 
 - Versioned routes under `/api/v1`
