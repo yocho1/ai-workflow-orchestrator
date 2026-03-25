@@ -130,8 +130,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 ## Sprint Progress
 
 - [x] Sprint 1 - Project Setup & Architecture
-- [ ] Sprint 2 - Database & Core Models
-- [ ] Sprint 3 - ETL Pipeline
+- [x] Sprint 2 - Database & Core Models
+- [x] Sprint 3 - ETL Pipeline
 - [ ] Sprint 4 - AI Integration (RAG + Classification)
 - [ ] Sprint 5 - Frontend Dashboard Expansion
 - [ ] Sprint 6 - Auth & User Logic
