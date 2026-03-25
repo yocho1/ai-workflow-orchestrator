@@ -127,12 +127,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - Global exception handling and validation response normalization
 - Structured JSON logs for requests and errors
 
+## AI Integration (Sprint 4)
+
+- OpenRouter-backed AI endpoints:
+  - `POST /api/v1/ai/documents/{document_id}/classify`
+  - `POST /api/v1/ai/documents/{document_id}/ask`
+- Configure `OPENROUTER_API_KEY` and optional model settings in `.env`.
+- For local testing without external API calls, set `OPENROUTER_MOCK=true`.
+
 ## Sprint Progress
 
 - [x] Sprint 1 - Project Setup & Architecture
 - [x] Sprint 2 - Database & Core Models
 - [x] Sprint 3 - ETL Pipeline
-- [ ] Sprint 4 - AI Integration (RAG + Classification)
+- [x] Sprint 4 - AI Integration (RAG + Classification)
 - [ ] Sprint 5 - Frontend Dashboard Expansion
 - [ ] Sprint 6 - Auth & User Logic
 - [ ] Sprint 7 - QA & Evaluation

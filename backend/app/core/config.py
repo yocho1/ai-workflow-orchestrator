@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     app_debug: bool = Field(default=False, alias="APP_DEBUG")
     app_log_level: str = Field(default="INFO", alias="APP_LOG_LEVEL")
     database_url: str = Field(alias="DATABASE_URL")
+    openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
+    openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL")
+    openrouter_model: str = Field(default="openai/gpt-4o-mini", alias="OPENROUTER_MODEL")
+    openrouter_timeout_s: int = Field(default=30, alias="OPENROUTER_TIMEOUT_S")
+    openrouter_referer: str = Field(default="http://localhost", alias="OPENROUTER_REFERER")
+    openrouter_app_name: str = Field(default="ai-workflow-orchestrator", alias="OPENROUTER_APP_NAME")
+    openrouter_mock: bool = Field(default=False, alias="OPENROUTER_MOCK")
 
 
 @lru_cache
