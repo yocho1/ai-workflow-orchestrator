@@ -2,9 +2,11 @@ import { AppBar, Avatar, Box, IconButton, Toolbar, Typography } from "@mui/mater
 
 type HeaderProps = {
   onToggleSidebar: () => void;
+  userName: string;
+  onLogout: () => void;
 };
 
-export const Header = ({ onToggleSidebar }: HeaderProps): JSX.Element => {
+export const Header = ({ onToggleSidebar, userName, onLogout }: HeaderProps): JSX.Element => {
   return (
     <AppBar
       position="sticky"
@@ -24,10 +26,12 @@ export const Header = ({ onToggleSidebar }: HeaderProps): JSX.Element => {
           Business Workflow Automation
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <IconButton>
-            <Typography variant="button">Alerts</Typography>
+          <IconButton onClick={onLogout}>
+            <Typography variant="button">Logout</Typography>
           </IconButton>
-          <Avatar sx={{ width: 34, height: 34, bgcolor: "primary.main" }}>A</Avatar>
+          <Avatar sx={{ width: 34, height: 34, bgcolor: "primary.main" }}>
+            {userName.slice(0, 1).toUpperCase()}
+          </Avatar>
         </Box>
       </Toolbar>
     </AppBar>

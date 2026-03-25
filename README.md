@@ -154,6 +154,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
   - `AUTH_SECRET_KEY`
   - `AUTH_ALGORITHM`
   - `AUTH_ACCESS_TOKEN_EXP_MINUTES`
+- Frontend auth flow with login/register page and token-based API access
+- Automatic bearer token attachment in HTTP client and logout support in app shell
 
 ## Sprint Progress
 
@@ -162,6 +164,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - [x] Sprint 3 - ETL Pipeline
 - [x] Sprint 4 - AI Integration (RAG + Classification)
 - [x] Sprint 5 - Frontend Dashboard Expansion
-- [ ] Sprint 6 - Auth & User Logic
+- [x] Sprint 6 - Auth & User Logic
 - [ ] Sprint 7 - QA & Evaluation
 - [ ] Sprint 8 - Polish & Production
