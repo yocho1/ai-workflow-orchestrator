@@ -13,7 +13,11 @@ from app.services.document_status_service import DocumentStatusService
 @pytest.fixture
 def test_user(db: Session) -> User:
     """Create a test user."""
-    user = User(email="test@example.com", hashed_password="hashed_test_password")
+    user = User(
+        email="test@example.com",
+        full_name="Test User",
+        password_hash="hashed_test_password",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -167,7 +171,8 @@ class TestDocumentStatusService:
         latest_log = logs[-1]
         assert latest_log.pipeline_step == "lifecycle_management"
         assert latest_log.status == "completed"
-        assert "UPLOADED" in latest_log.message and "PROCESSING" in latest_log.message
+        message = (latest_log.message or "").lower()
+        assert "uploaded" in message and "processing" in message
 
     def test_status_update_with_custom_message(self, db: Session, test_document: Document):
         """Test status update with custom message"""

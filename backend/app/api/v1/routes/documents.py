@@ -8,6 +8,7 @@ from app.core.db import get_db
 from app.core.response import ok_response
 from app.core.security import get_current_user
 from app.models.user import User
+from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import DocumentCreate, DocumentRead, DocumentStatusUpdate, DocumentUpdate
 from app.services.document_service import DocumentService
 from app.services.document_status_service import DocumentStatusService
@@ -136,7 +137,15 @@ def update_document_status(
     - completed → processing (allow reprocessing)
     - failed → processing (allow retry)
     """
+    repository = DocumentRepository()
     service = DocumentStatusService()
+
+    owned_document = repository.get_by_id_for_user(db, document_id, current_user.id)
+    if owned_document is None:
+        existing_document = repository.get_by_id(db, document_id)
+        if existing_document is None:
+            raise HTTPException(status_code=404, detail=f"Document {document_id} not found")
+        raise HTTPException(status_code=403, detail="Not authorized to update this document")
 
     try:
         document = service.update_status(
@@ -145,9 +154,6 @@ def update_document_status(
             payload.status,
             payload.message,
         )
-        # Verify ownership
-        if document.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to update this document")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
