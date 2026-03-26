@@ -8,8 +8,9 @@ from app.core.db import get_db
 from app.core.response import ok_response
 from app.core.security import get_current_user
 from app.models.user import User
-from app.schemas.document import DocumentCreate, DocumentRead, DocumentUpdate
+from app.schemas.document import DocumentCreate, DocumentRead, DocumentStatusUpdate, DocumentUpdate
 from app.services.document_service import DocumentService
+from app.services.document_status_service import DocumentStatusService
 from app.services.file_ingestion_service import FileIngestionService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -106,6 +107,49 @@ def get_document(
         document = service.get_document(db, document_id, current_user.id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    body = ok_response(DocumentRead.model_validate(document).model_dump())
+    return {"success": body["success"], "data": body["data"], "error": body["error"]}
+
+
+@router.post(
+    "/{document_id}/status",
+    status_code=status.HTTP_200_OK,
+    responses={
+        404: {"description": "Document not found"},
+        422: {"description": "Invalid status transition"},
+    },
+)
+def update_document_status(
+    document_id: int,
+    payload: DocumentStatusUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """
+    Update document processing status with validation.
+
+    Status transitions follow a state machine:
+    - uploaded → processing, failed
+    - processing → classified, failed
+    - classified → completed, failed
+    - completed → processing (allow reprocessing)
+    - failed → processing (allow retry)
+    """
+    service = DocumentStatusService()
+
+    try:
+        document = service.update_status(
+            db,
+            document_id,
+            payload.status,
+            payload.message,
+        )
+        # Verify ownership
+        if document.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this document")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     body = ok_response(DocumentRead.model_validate(document).model_dump())
     return {"success": body["success"], "data": body["data"], "error": body["error"]}

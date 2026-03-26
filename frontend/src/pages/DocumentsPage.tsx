@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   Stack,
   Table,
@@ -15,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { StatusBadge } from "../components/StatusBadge";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { classifyDocument } from "../services/ai";
 import { listDocuments } from "../services/documents";
@@ -114,7 +114,7 @@ export const DocumentsPage = (): JSX.Element => {
                     <TableCell>{doc.id}</TableCell>
                     <TableCell>{doc.filename}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={doc.processing_status} />
+                      <StatusBadge status={doc.processing_status} />
                     </TableCell>
                     <TableCell>{formatDocumentType(doc.document_type)}</TableCell>
                     <TableCell align="right">
