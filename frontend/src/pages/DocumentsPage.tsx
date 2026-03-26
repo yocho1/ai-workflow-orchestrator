@@ -20,6 +20,26 @@ import { classifyDocument } from "../services/ai";
 import { listDocuments } from "../services/documents";
 import { DocumentRecord } from "../types/api";
 
+const typeDisplayMap: Record<string, string> = {
+  invoice: "🧾 Invoice",
+  receipt: "🧾 Receipt",
+  contract: "⚖️ Contract",
+  agreement: "⚖️ Agreement",
+  purchase_order: "🛒 Purchase Order",
+  email: "✉️ Email",
+  report: "📄 Report",
+  dataset: "📊 Dataset",
+  certificate: "🎓 Certificate",
+  other: "📦 Other",
+};
+
+const formatDocumentType = (documentType: string | null): string => {
+  if (!documentType) {
+    return "-";
+  }
+  return typeDisplayMap[documentType] ?? "📦 Other";
+};
+
 export const DocumentsPage = (): JSX.Element => {
   usePageTitle("Documents");
 
@@ -96,7 +116,7 @@ export const DocumentsPage = (): JSX.Element => {
                     <TableCell>
                       <Chip size="small" label={doc.processing_status} />
                     </TableCell>
-                    <TableCell>{doc.document_type ?? "-"}</TableCell>
+                    <TableCell>{formatDocumentType(doc.document_type)}</TableCell>
                     <TableCell align="right">
                       <Button
                         size="small"

@@ -15,7 +15,21 @@ import {
 import { usePageTitle } from "../hooks/usePageTitle";
 import { askDocument, classifyDocument } from "../services/ai";
 import { listDocuments } from "../services/documents";
+import { getHttpErrorMessage } from "../services/http";
 import { AskDocumentResult, DocumentRecord } from "../types/api";
+
+const formatConfidence = (confidence: number | null): string => {
+  if (confidence === null || Number.isNaN(confidence)) {
+    return "Not available";
+  }
+  if (confidence >= 0.85) {
+    return "High";
+  }
+  if (confidence >= 0.65) {
+    return "Medium";
+  }
+  return "Low";
+};
 
 export const AIAssistantPage = (): JSX.Element => {
   usePageTitle("AI Assistant");
@@ -36,8 +50,8 @@ export const AIAssistantPage = (): JSX.Element => {
         if (data.length > 0) {
           setSelectedDocumentId(String(data[0].id));
         }
-      } catch {
-        setError("Failed to load documents.");
+      } catch (error) {
+        setError(getHttpErrorMessage(error, "Failed to load documents."));
       }
     };
 
@@ -54,8 +68,8 @@ export const AIAssistantPage = (): JSX.Element => {
     setError(null);
     try {
       setAnswer(await askDocument(Number(selectedDocumentId), question.trim()));
-    } catch {
-      setError("AI question failed.");
+    } catch (error) {
+      setError(getHttpErrorMessage(error, "AI question failed."));
     } finally {
       setAsking(false);
     }
@@ -71,8 +85,8 @@ export const AIAssistantPage = (): JSX.Element => {
     setError(null);
     try {
       await classifyDocument(Number(selectedDocumentId));
-    } catch {
-      setError("Classification failed.");
+    } catch (error) {
+      setError(getHttpErrorMessage(error, "Classification failed."));
     } finally {
       setClassifying(false);
     }
@@ -132,7 +146,7 @@ export const AIAssistantPage = (): JSX.Element => {
               </Typography>
               <Typography variant="body1">{answer.answer}</Typography>
               <Typography variant="caption" color="text.secondary">
-                Confidence: {answer.confidence ?? "n/a"} | Context Chunks: {answer.context_chunks_used}
+                Confidence: {formatConfidence(answer.confidence)}
               </Typography>
             </Stack>
           )}

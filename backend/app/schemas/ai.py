@@ -19,4 +19,6 @@ class AskDocumentResult(BaseModel):
     document_id: int
     question: str
     answer: str
+    confidence: float | None = None
+    context_chunks_used: int = 0
     used_context_chars: int
