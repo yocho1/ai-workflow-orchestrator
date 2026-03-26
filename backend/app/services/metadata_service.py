@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 from app.models.enums import DocumentStatus
 from app.repositories.metadata_repository import MetadataRepository
+from app.schemas.metadata import MetadataUpdate
 from app.services.document_status_service import DocumentStatusService
 from app.services.metadata_extractor import MetadataExtractor
 
@@ -83,3 +84,15 @@ class MetadataService:
     def get_metadata(self, db: Session, document_id: int):
         """Retrieve metadata for a document."""
         return self.metadata_repo.get_by_document_id(db, document_id)
+
+    def update_metadata(
+        self,
+        db: Session,
+        document_id: int,
+        payload: MetadataUpdate,
+    ):
+        """Update metadata fields for manual human review/correction."""
+        metadata = self.metadata_repo.update_by_document_id(db, document_id, payload)
+        if metadata:
+            db.commit()
+        return metadata

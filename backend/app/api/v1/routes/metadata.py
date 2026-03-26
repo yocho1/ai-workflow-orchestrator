@@ -11,7 +11,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.metadata_repository import MetadataRepository
-from app.schemas.metadata import MetadataRead
+from app.schemas.metadata import MetadataRead, MetadataUpdate
 from app.services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/documents", tags=["metadata"])
@@ -87,6 +87,34 @@ def extract_document_metadata(
         )
 
     serialized_metadata = MetadataRead.model_validate(metadata).model_dump(mode="json")
+    return ok_response(serialized_metadata)
+
+
+@router.patch("/{document_id}/metadata")
+def update_document_metadata(
+    document_id: int,
+    payload: MetadataUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Manually review and update extracted metadata for a document."""
+    doc_repo = DocumentRepository()
+    owned_document = doc_repo.get_by_id_for_user(db, document_id, current_user.id)
+    if not owned_document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    service = MetadataService()
+    updated = service.update_metadata(db, document_id, payload)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Metadata not found for document",
+        )
+
+    serialized_metadata = MetadataRead.model_validate(updated).model_dump(mode="json")
     return ok_response(serialized_metadata)
 
 

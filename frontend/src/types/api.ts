@@ -36,3 +36,15 @@ export type AskDocumentResult = {
   confidence: number | null;
   context_chunks_used: number;
 };
+
+export type MetadataRecord = {
+  id: number;
+  document_id: number;
+  document_type: string;
+  confidence_score: number;
+  extracted_data: Record<string, unknown>;
+  extraction_model: string;
+  extraction_error: string | null;
+  created_at: string;
+  updated_at: string;
+};

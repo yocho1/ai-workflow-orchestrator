@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  MenuItem,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from "@mui/material";
 
@@ -18,7 +26,9 @@ import { StatusBadge } from "../components/StatusBadge";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { classifyDocument } from "../services/ai";
 import { listDocuments } from "../services/documents";
+import { extractMetadata, getMetadata, updateMetadata } from "../services/metadata";
 import { DocumentRecord } from "../types/api";
+import { getHttpErrorMessage } from "../services/http";
 
 const typeDisplayMap: Record<string, string> = {
   invoice: "🧾 Invoice",
@@ -47,6 +57,16 @@ export const DocumentsPage = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [classifyingId, setClassifyingId] = useState<number | null>(null);
+  const [extractingId, setExtractingId] = useState<number | null>(null);
+
+  const [reviewOpen, setReviewOpen] = useState<boolean>(false);
+  const [reviewLoading, setReviewLoading] = useState<boolean>(false);
+  const [reviewSaving, setReviewSaving] = useState<boolean>(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewDocumentId, setReviewDocumentId] = useState<number | null>(null);
+  const [reviewDocumentType, setReviewDocumentType] = useState<string>("other");
+  const [reviewConfidence, setReviewConfidence] = useState<string>("0");
+  const [reviewExtractedJson, setReviewExtractedJson] = useState<string>("{}");
 
   const load = async (): Promise<void> => {
     setLoading(true);
@@ -74,6 +94,86 @@ export const DocumentsPage = (): JSX.Element => {
       setError("Failed to classify this document.");
     } finally {
       setClassifyingId(null);
+    }
+  };
+
+  const handleExtractMetadata = async (documentId: number): Promise<void> => {
+    setExtractingId(documentId);
+    setError(null);
+    try {
+      await extractMetadata(documentId);
+      await load();
+    } catch (err: unknown) {
+      setError(getHttpErrorMessage(err, "Failed to extract metadata."));
+    } finally {
+      setExtractingId(null);
+    }
+  };
+
+  const openReviewDialog = async (documentId: number): Promise<void> => {
+    setReviewOpen(true);
+    setReviewLoading(true);
+    setReviewError(null);
+    setReviewDocumentId(documentId);
+    try {
+      const metadata = await getMetadata(documentId);
+      setReviewDocumentType(metadata.document_type ?? "other");
+      setReviewConfidence(String(metadata.confidence_score ?? 0));
+      setReviewExtractedJson(JSON.stringify(metadata.extracted_data ?? {}, null, 2));
+    } catch (err: unknown) {
+      setReviewError(getHttpErrorMessage(err, "Could not load metadata. Extract metadata first."));
+      setReviewDocumentType("other");
+      setReviewConfidence("0");
+      setReviewExtractedJson("{}");
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const closeReviewDialog = (): void => {
+    setReviewOpen(false);
+    setReviewError(null);
+    setReviewDocumentId(null);
+  };
+
+  const handleSaveReview = async (): Promise<void> => {
+    if (!reviewDocumentId) {
+      return;
+    }
+
+    let parsedExtractedData: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(reviewExtractedJson) as unknown;
+      if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
+        setReviewError("Extracted data must be a JSON object.");
+        return;
+      }
+      parsedExtractedData = parsed as Record<string, unknown>;
+    } catch {
+      setReviewError("Invalid JSON in extracted data.");
+      return;
+    }
+
+    const confidenceValue = Number(reviewConfidence);
+    if (Number.isNaN(confidenceValue) || confidenceValue < 0 || confidenceValue > 1) {
+      setReviewError("Confidence score must be between 0 and 1.");
+      return;
+    }
+
+    setReviewSaving(true);
+    setReviewError(null);
+    try {
+      await updateMetadata(reviewDocumentId, {
+        document_type: reviewDocumentType,
+        confidence_score: confidenceValue,
+        extracted_data: parsedExtractedData,
+      });
+      await load();
+      closeReviewDialog();
+    } catch (err: unknown) {
+      setReviewError(getHttpErrorMessage(err, "Failed to save metadata updates."));
+    } finally {
+      setReviewSaving(false);
     }
   };
 
@@ -118,14 +218,31 @@ export const DocumentsPage = (): JSX.Element => {
                     </TableCell>
                     <TableCell>{formatDocumentType(doc.document_type)}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={classifyingId === doc.id}
-                        onClick={() => void handleClassify(doc.id)}
-                      >
-                        {classifyingId === doc.id ? "Classifying..." : "Classify"}
-                      </Button>
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={classifyingId === doc.id}
+                          onClick={() => void handleClassify(doc.id)}
+                        >
+                          {classifyingId === doc.id ? "Classifying..." : "Classify"}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          disabled={extractingId === doc.id}
+                          onClick={() => void handleExtractMetadata(doc.id)}
+                        >
+                          {extractingId === doc.id ? "Extracting..." : "Extract"}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => void openReviewDialog(doc.id)}
+                        >
+                          Review
+                        </Button>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -134,6 +251,66 @@ export const DocumentsPage = (): JSX.Element => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={reviewOpen} onClose={closeReviewDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Review Metadata</DialogTitle>
+        <DialogContent>
+          {reviewLoading ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 1 }}>
+              <CircularProgress size={18} />
+              <Typography variant="body2">Loading metadata...</Typography>
+            </Stack>
+          ) : (
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              {reviewError && <Alert severity="error">{reviewError}</Alert>}
+
+              <Box display="grid" gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }} gap={2}>
+                <TextField
+                  select
+                  label="Document Type"
+                  value={reviewDocumentType}
+                  onChange={(e) => setReviewDocumentType(e.target.value)}
+                >
+                  <MenuItem value="invoice">invoice</MenuItem>
+                  <MenuItem value="contract">contract</MenuItem>
+                  <MenuItem value="receipt">receipt</MenuItem>
+                  <MenuItem value="report">report</MenuItem>
+                  <MenuItem value="other">other</MenuItem>
+                </TextField>
+                <TextField
+                  label="Confidence (0-1)"
+                  value={reviewConfidence}
+                  onChange={(e) => setReviewConfidence(e.target.value)}
+                  inputProps={{ step: "0.01" }}
+                />
+              </Box>
+
+              <Divider />
+
+              <TextField
+                label="Extracted Data (JSON)"
+                value={reviewExtractedJson}
+                onChange={(e) => setReviewExtractedJson(e.target.value)}
+                multiline
+                minRows={12}
+                fullWidth
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeReviewDialog} disabled={reviewSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleSaveReview()}
+            disabled={reviewLoading || reviewSaving || reviewDocumentId === null}
+          >
+            {reviewSaving ? "Saving..." : "Save Review"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 };

@@ -25,7 +25,7 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
     return fallback;
   }
 
-  const axiosError = error as AxiosError<{ detail?: string; message?: string }>;
+  const axiosError = error as AxiosError<{ detail?: string; message?: string; error?: { message?: string } }>;
 
   if (axiosError.code === "ERR_NETWORK") {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -38,7 +38,10 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
     return "Request timed out. Please retry.";
   }
 
-  const apiMessage = axiosError.response?.data?.detail ?? axiosError.response?.data?.message;
+  const apiMessage =
+    axiosError.response?.data?.error?.message ??
+    axiosError.response?.data?.detail ??
+    axiosError.response?.data?.message;
   if (apiMessage) {
     return apiMessage;
   }

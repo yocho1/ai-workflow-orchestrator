@@ -1,20 +1,20 @@
-import React from 'react';
 import {
+  Alert,
+  Box,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+  Chip,
+  CircularProgress,
+  Stack,
+  Typography,
+} from "@mui/material";
 
 interface Metadata {
   id: number;
   document_id: number;
   document_type: string;
   confidence_score: number;
-  extracted_data: Record<string, any>;
+  extracted_data: Record<string, unknown>;
   extraction_model: string;
   extraction_error: string | null;
   created_at: string;
@@ -44,12 +44,11 @@ export function MetadataDisplay({
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Extracted Metadata</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Extracting metadata...</span>
+        <CardContent>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 2 }}>
+            <CircularProgress size={18} />
+            <Typography variant="body2">Extracting metadata...</Typography>
+          </Stack>
         </CardContent>
       </Card>
     );
@@ -57,12 +56,9 @@ export function MetadataDisplay({
 
   if (error) {
     return (
-      <Card className="border-red-200 bg-red-50">
-        <CardHeader>
-          <CardTitle className="text-red-900">Metadata Extraction Failed</CardTitle>
-        </CardHeader>
+      <Card>
         <CardContent>
-          <p className="text-sm text-red-800">{error}</p>
+          <Alert severity="error">{error}</Alert>
         </CardContent>
       </Card>
     );
@@ -71,14 +67,13 @@ export function MetadataDisplay({
   if (!metadata) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Extracted Metadata</CardTitle>
-          <CardDescription>No metadata has been extracted yet</CardDescription>
-        </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Extract metadata to see structured data from your document.
-          </p>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+            Extracted Metadata
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            No metadata has been extracted yet.
+          </Typography>
         </CardContent>
       </Card>
     );
@@ -86,12 +81,9 @@ export function MetadataDisplay({
 
   if (metadata.extraction_error) {
     return (
-      <Card className="border-red-200 bg-red-50">
-        <CardHeader>
-          <CardTitle className="text-red-900">Extraction Failed</CardTitle>
-        </CardHeader>
+      <Card>
         <CardContent>
-          <p className="text-sm text-red-800">{metadata.extraction_error}</p>
+          <Alert severity="error">{metadata.extraction_error}</Alert>
         </CardContent>
       </Card>
     );
@@ -99,31 +91,41 @@ export function MetadataDisplay({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Extracted Metadata</CardTitle>
-          <Badge variant="outline" className="whitespace-nowrap">
-            {metadata.document_type.toUpperCase()}
-            <span className="ml-2 text-xs">
-              {(metadata.confidence_score * 100).toFixed(0)}%
-            </span>
-          </Badge>
-        </div>
-      </CardHeader>
       <CardContent>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Extracted Metadata
+          </Typography>
+          <Chip
+            size="small"
+            label={
+              <>
+            {metadata.document_type.toUpperCase()}
+                {" "}
+                (
+              {(metadata.confidence_score * 100).toFixed(0)}%
+                )
+              </>
+            }
+            variant="outlined"
+          />
+        </Stack>
+
         {Object.entries(metadata.extracted_data).length === 0 ? (
-          <p className="text-sm text-muted-foreground">No fields extracted</p>
+          <Typography variant="body2" color="text.secondary">
+            No fields extracted.
+          </Typography>
         ) : (
-          <div className="space-y-4">
+          <Stack spacing={2}>
             {Object.entries(metadata.extracted_data).map(([key, value]) => (
-              <div key={key} className="border-l-4 border-blue-200 pl-4">
-                <p className="text-sm font-semibold text-gray-700 capitalize">
+              <Box key={key} sx={{ borderLeft: "4px solid", borderColor: "primary.light", pl: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, textTransform: "capitalize" }}>
                   {key.replace(/_/g, ' ')}
-                </p>
+                </Typography>
                 <MetadataFieldValue value={value} />
-              </div>
+              </Box>
             ))}
-          </div>
+          </Stack>
         )}
       </CardContent>
     </Card>
@@ -133,56 +135,74 @@ export function MetadataDisplay({
 /**
  * Renders a metadata field value based on its type
  */
-function MetadataFieldValue({ value }: { value: any }) {
+function MetadataFieldValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
-    return <p className="text-sm text-muted-foreground italic">Not found</p>;
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+        Not found
+      </Typography>
+    );
   }
 
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      return <p className="text-sm text-muted-foreground">Empty list</p>;
-    }
-
-    // Check if array contains objects
-    if (typeof value[0] === 'object' && value[0] !== null) {
       return (
-        <ul className="mt-2 space-y-2">
-          {value.map((item, idx) => (
-            <li key={idx} className="rounded border border-gray-200 bg-gray-50 p-2 text-sm">
-              {typeof item === 'object' ? JSON.stringify(item) : String(item)}
-            </li>
-          ))}
-        </ul>
+        <Typography variant="body2" color="text.secondary">
+          Empty list
+        </Typography>
       );
     }
 
-    // Simple array of values
+    if (typeof value[0] === 'object' && value[0] !== null) {
+      return (
+        <Stack spacing={1} sx={{ mt: 1 }}>
+          {value.map((item, idx) => (
+            <Box key={idx} sx={{ p: 1, borderRadius: 1, bgcolor: "grey.100" }}>
+              <Typography variant="body2">
+              {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      );
+    }
+
     return (
-      <ul className="mt-1 list-inside space-y-1">
+      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
         {value.map((item, idx) => (
-          <li key={idx} className="text-sm text-gray-600">
-            • {String(item)}
-          </li>
+          <Typography key={idx} variant="body2" color="text.secondary">
+            - {String(item)}
+          </Typography>
         ))}
-      </ul>
+      </Stack>
     );
   }
 
   if (typeof value === 'object' && value !== null) {
     return (
-      <pre className="mt-2 overflow-x-auto rounded bg-gray-100 p-2 text-xs">
+      <Box
+        component="pre"
+        sx={{
+          mt: 1,
+          p: 1,
+          borderRadius: 1,
+          bgcolor: "grey.100",
+          overflowX: "auto",
+          fontSize: 12,
+        }}
+      >
         {JSON.stringify(value, null, 2)}
-      </pre>
+      </Box>
     );
   }
 
   if (typeof value === 'boolean') {
-    return (
-      <Badge variant={value ? 'default' : 'secondary'}>
-        {value ? 'Yes' : 'No'}
-      </Badge>
-    );
+    return <Chip size="small" color={value ? "success" : "default"} label={value ? "Yes" : "No"} />;
   }
 
-  return <p className="text-sm text-gray-600">{String(value)}</p>;
+  return (
+    <Typography variant="body2" color="text.secondary">
+      {String(value)}
+    </Typography>
+  );
 }

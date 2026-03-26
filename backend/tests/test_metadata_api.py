@@ -139,6 +139,42 @@ class TestMetadataAPI:
         assert data["data"]["extracted"] is True
         assert data["data"]["field_count"] == 4
 
+    @patch("app.api.v1.routes.metadata.MetadataService")
+    def test_update_metadata_success(self, mock_service, client, logged_in_user, test_document):
+        """Test successful manual metadata update."""
+        mock_service_instance = Mock()
+        mock_service_instance.update_metadata.return_value = _metadata_ns(
+            test_document.id,
+            "invoice",
+            0.88,
+        )
+        mock_service.return_value = mock_service_instance
+
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+        response = client.patch(
+            f"/api/v1/documents/{test_document.id}/metadata",
+            headers=headers,
+            json={
+                "document_type": "invoice",
+                "confidence_score": 0.88,
+                "extracted_data": {"amount": 123.45, "currency": "USD"},
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["document_id"] == test_document.id
+        mock_service_instance.update_metadata.assert_called_once()
+
+    def test_update_metadata_requires_auth(self, client):
+        """Test metadata update requires authentication."""
+        response = client.patch(
+            "/api/v1/documents/1/metadata",
+            json={"document_type": "invoice"},
+        )
+        assert response.status_code == 401
+
 
 class TestMetadataWorkflow:
     """Tests for complete metadata extraction workflow."""
