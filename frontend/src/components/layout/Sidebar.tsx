@@ -1,13 +1,26 @@
 import { Box, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography } from "@mui/material";
 
-const navItems = [
-  { label: "Dashboard", marker: "DB" },
-  { label: "Documents", marker: "DOC" },
-  { label: "Uploads", marker: "UP" },
-  { label: "AI Assistant", marker: "AI" },
+import { AppSection } from "../../state/uiStore";
+
+type NavItem = {
+  key: AppSection;
+  label: string;
+  marker: string;
+};
+
+const navItems: NavItem[] = [
+  { key: "dashboard", label: "Dashboard", marker: "DB" },
+  { key: "documents", label: "Documents", marker: "DOC" },
+  { key: "uploads", label: "Uploads", marker: "UP" },
+  { key: "ai", label: "AI Assistant", marker: "AI" },
 ];
 
-export const Sidebar = (): JSX.Element => {
+type SidebarProps = {
+  activeSection: AppSection;
+  onSelectSection: (section: AppSection) => void;
+};
+
+export const Sidebar = ({ activeSection, onSelectSection }: SidebarProps): JSX.Element => {
   return (
     <Box sx={{ width: 260, borderRight: "1px solid", borderColor: "divider", height: "100%" }}>
       <Toolbar sx={{ px: 3 }}>
@@ -17,7 +30,12 @@ export const Sidebar = (): JSX.Element => {
       </Toolbar>
       <List sx={{ px: 1 }}>
         {navItems.map((item) => (
-          <ListItemButton key={item.label} sx={{ borderRadius: 2, mb: 0.5 }}>
+          <ListItemButton
+            key={item.key}
+            selected={activeSection === item.key}
+            onClick={() => onSelectSection(item.key)}
+            sx={{ borderRadius: 2, mb: 0.5 }}
+          >
             <ListItemIcon sx={{ minWidth: 36 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                 {item.marker}

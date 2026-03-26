@@ -138,10 +138,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 ## Frontend Dashboard Expansion (Sprint 5)
 
 - Live document dashboard connected to backend APIs
-- Document creation form for quick text-based ingestion
+- Multi-section workspace: Dashboard, Documents, Uploads, and AI Assistant
 - KPI cards derived from current backend document data
 - Document list with one-click AI classification action
 - RAG question panel to query a selected document
+- Backend upload ingestion endpoint: `POST /api/v1/documents/upload`
+- Supported upload formats: `.txt`, `.md`, `.csv`, `.json`, `.pdf`
 
 ## Authentication (Sprint 6 Backend)
 

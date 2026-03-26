@@ -20,3 +20,16 @@ export async function createDocument(payload: CreateDocumentPayload): Promise<Do
   });
   return response.data.data;
 }
+
+export async function uploadDocument(file: File): Promise<DocumentRecord> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await httpClient.post<ApiEnvelope<DocumentRecord>>("/documents/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return response.data.data;
+}

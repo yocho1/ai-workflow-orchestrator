@@ -3,8 +3,11 @@ import { Box, Drawer } from "@mui/material";
 
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
+import { AIAssistantPage } from "./pages/AIAssistantPage";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
+import { UploadsPage } from "./pages/UploadsPage";
 import { login, me, register } from "./services/auth";
 import { useAuthStore } from "./state/authStore";
 import { useUIStore } from "./state/uiStore";
@@ -12,7 +15,7 @@ import { useUIStore } from "./state/uiStore";
 const drawerWidth = 260;
 
 function App(): JSX.Element {
-  const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const { sidebarOpen, activeSection, setSidebarOpen, setActiveSection } = useUIStore();
   const { token, user, isAuthReady, setAuth, setUser, markAuthReady, logout } = useAuthStore();
 
   useEffect(() => {
@@ -53,6 +56,24 @@ function App(): JSX.Element {
     return <AuthPage onLogin={handleLogin} onRegister={handleRegister} />;
   }
 
+  const sectionTitleMap = {
+    dashboard: "Executive Dashboard",
+    documents: "Documents",
+    uploads: "Uploads",
+    ai: "AI Assistant",
+  };
+
+  let pageContent = <DashboardPage />;
+  if (activeSection === "documents") {
+    pageContent = <DocumentsPage />;
+  }
+  if (activeSection === "uploads") {
+    pageContent = <UploadsPage />;
+  }
+  if (activeSection === "ai") {
+    pageContent = <AIAssistantPage />;
+  }
+
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <Drawer
@@ -67,7 +88,7 @@ function App(): JSX.Element {
           },
         }}
       >
-        <Sidebar />
+        <Sidebar activeSection={activeSection} onSelectSection={setActiveSection} />
       </Drawer>
 
       <Box
@@ -81,10 +102,11 @@ function App(): JSX.Element {
         <Header
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           userName={user.full_name}
+          sectionTitle={sectionTitleMap[activeSection]}
           onLogout={logout}
         />
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
-          <DashboardPage />
+          {pageContent}
         </Box>
       </Box>
     </Box>

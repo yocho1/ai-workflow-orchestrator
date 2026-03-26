@@ -27,3 +27,6 @@ Thumbs.db
 
 # Local runtime logs
 .run-logs/
+
+# Runtime uploads
+uploads/

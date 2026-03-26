@@ -1,14 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.response import ok_response
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.document import DocumentCreate, DocumentRead, DocumentUpdate
 from app.services.document_service import DocumentService
+from app.services.file_ingestion_service import FileIngestionService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -22,6 +24,56 @@ def create_document(
     service = DocumentService()
     payload_with_owner = payload.model_copy(update={"user_id": current_user.id})
     document = service.create_document(db, payload_with_owner)
+    body = ok_response(DocumentRead.model_validate(document).model_dump())
+    return {"success": body["success"], "data": body["data"], "error": body["error"]}
+
+
+@router.post(
+    "/upload",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"description": "Invalid upload payload"},
+        413: {"description": "File too large"},
+        415: {"description": "Unsupported file type"},
+    },
+)
+async def upload_document(
+    file: Annotated[UploadFile, File(...)],
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    settings = get_settings()
+    max_bytes = settings.upload_max_mb * 1024 * 1024
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File name is required")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"File exceeds {settings.upload_max_mb} MB limit")
+
+    ingestion_service = FileIngestionService()
+    try:
+        storage_path, extracted_text = ingestion_service.ingest(original_filename=file.filename, content=content)
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+
+    payload = DocumentCreate(
+        filename=file.filename,
+        content_type=file.content_type or "application/octet-stream",
+        storage_path=storage_path,
+        extracted_text=extracted_text,
+        processing_status="uploaded",
+        document_type=None,
+        user_id=current_user.id,
+    )
+
+    service = DocumentService()
+    document = service.create_document(db, payload)
+
     body = ok_response(DocumentRead.model_validate(document).model_dump())
     return {"success": body["success"], "data": body["data"], "error": body["error"]}
 
