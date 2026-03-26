@@ -60,6 +60,7 @@ export const DocumentsPage = (): JSX.Element => {
   const [classifyingId, setClassifyingId] = useState<number | null>(null);
   const [extractingId, setExtractingId] = useState<number | null>(null);
   const [reviewQueue, setReviewQueue] = useState<MetadataReviewQueueItem[]>([]);
+  const [reviewQueueError, setReviewQueueError] = useState<string | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState<boolean>(false);
   const [reviewLoading, setReviewLoading] = useState<boolean>(false);
@@ -73,11 +74,31 @@ export const DocumentsPage = (): JSX.Element => {
   const load = async (): Promise<void> => {
     setLoading(true);
     setError(null);
+    setReviewQueueError(null);
     try {
-      const [docs, queue] = await Promise.all([listDocuments(), listMetadataReviewQueue()]);
-      setDocuments(docs);
-      setReviewQueue(queue);
+      const [docsResult, queueResult] = await Promise.allSettled([
+        listDocuments(),
+        listMetadataReviewQueue(),
+      ]);
+
+      if (docsResult.status === "fulfilled") {
+        setDocuments(docsResult.value);
+      } else {
+        setDocuments([]);
+        setError(getHttpErrorMessage(docsResult.reason, "Failed to load documents."));
+      }
+
+      if (queueResult.status === "fulfilled") {
+        setReviewQueue(queueResult.value);
+      } else {
+        setReviewQueue([]);
+        setReviewQueueError(
+          getHttpErrorMessage(queueResult.reason, "Failed to load review queue."),
+        );
+      }
     } catch {
+      setDocuments([]);
+      setReviewQueue([]);
       setError("Failed to load documents.");
     } finally {
       setLoading(false);
@@ -197,6 +218,11 @@ export const DocumentsPage = (): JSX.Element => {
               label={`${reviewQueue.length} pending`}
             />
           </Stack>
+          {reviewQueueError && (
+            <Alert severity="warning" sx={{ mb: 1.5 }}>
+              {reviewQueueError}
+            </Alert>
+          )}
           {reviewQueue.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No low-confidence metadata currently needs review.

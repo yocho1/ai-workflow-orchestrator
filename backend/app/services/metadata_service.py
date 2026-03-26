@@ -39,38 +39,56 @@ class MetadataService:
         """
         text = extracted_text or document.extracted_text or ""
 
-        if not text:
-            # No text to process
-            self.status_service.update_status(
-                db,
-                document.id,
-                DocumentStatus.FAILED,
-                "No text available for extraction",
-            )
-            return
-
         try:
+            current_status = document.processing_status
+
+            # Normalize lifecycle to a valid extraction path when retrying or reprocessing.
+            if current_status in {
+                DocumentStatus.UPLOADED,
+                DocumentStatus.FAILED,
+                DocumentStatus.COMPLETED,
+            }:
+                self.status_service.update_status(
+                    db,
+                    document.id,
+                    DocumentStatus.PROCESSING,
+                    "Preparing document for metadata extraction",
+                )
+
             # Extract metadata
             metadata = self.extractor.extract_metadata(db, document.id, text)
 
-            # Transition: processing → classified
-            self.status_service.update_status(
-                db,
-                document.id,
-                DocumentStatus.CLASSIFIED,
-                f"Document classified as: {metadata.document_type} (confidence: {metadata.confidence_score:.2f})",
-            )
+            # Move to classified only when coming from processing.
+            if document.processing_status == DocumentStatus.PROCESSING:
+                self.status_service.update_status(
+                    db,
+                    document.id,
+                    DocumentStatus.CLASSIFIED,
+                    f"Document classified as: {metadata.document_type} (confidence: {metadata.confidence_score:.2f})",
+                )
 
-            # Transition: classified → completed
-            self.status_service.update_status(
-                db,
-                document.id,
-                DocumentStatus.COMPLETED,
-                "Metadata extraction complete",
-            )
+            # Complete when document is in classified state.
+            if document.processing_status == DocumentStatus.CLASSIFIED:
+                self.status_service.update_status(
+                    db,
+                    document.id,
+                    DocumentStatus.COMPLETED,
+                    "Metadata extraction complete",
+                )
 
             db.commit()
 
+        except Exception as e:
+            # Transition to failed on error when transition is valid.
+            if document.processing_status != DocumentStatus.FAILED:
+                self.status_service.update_status(
+                    db,
+                    document.id,
+                    DocumentStatus.FAILED,
+                    f"Metadata extraction failed: {str(e)}",
+                )
+            db.commit()
+            raise
         except Exception as e:
             # Transition to failed on error
             self.status_service.update_status(

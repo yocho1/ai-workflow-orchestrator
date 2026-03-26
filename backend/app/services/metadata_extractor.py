@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.models.enums import DocumentType
 from app.models.metadata import DocumentMetadata
 from app.repositories.metadata_repository import MetadataRepository
-from app.schemas.metadata import MetadataCreate
+from app.schemas.metadata import MetadataCreate, MetadataUpdate
 from app.services.ai_service import AiService
 
 
@@ -163,7 +163,24 @@ class MetadataExtractor:
                 needs_review=needs_review,
                 review_reason=review_reason,
             )
-            metadata = repo.create(db, document_id, payload)
+            existing = repo.get_by_document_id(db, document_id)
+            if existing:
+                updated = repo.update(
+                    db,
+                    existing.id,
+                    MetadataUpdate(
+                        document_type=payload.document_type,
+                        confidence_score=payload.confidence_score,
+                        extracted_data=payload.extracted_data,
+                        needs_review=payload.needs_review,
+                        review_reason=payload.review_reason,
+                    ),
+                )
+                if not updated:
+                    raise RuntimeError("Failed to update existing metadata")
+                metadata = updated
+            else:
+                metadata = repo.create(db, document_id, payload)
             return metadata
 
         except Exception as e:
@@ -178,5 +195,22 @@ class MetadataExtractor:
                 needs_review=True,
                 review_reason="Extraction failed and requires manual review",
             )
-            metadata = repo.create(db, document_id, payload)
+            existing = repo.get_by_document_id(db, document_id)
+            if existing:
+                updated = repo.update(
+                    db,
+                    existing.id,
+                    MetadataUpdate(
+                        document_type=payload.document_type,
+                        confidence_score=payload.confidence_score,
+                        extracted_data=payload.extracted_data,
+                        needs_review=payload.needs_review,
+                        review_reason=payload.review_reason,
+                    ),
+                )
+                if not updated:
+                    raise RuntimeError("Failed to update existing metadata after extraction error")
+                metadata = updated
+            else:
+                metadata = repo.create(db, document_id, payload)
             return metadata
