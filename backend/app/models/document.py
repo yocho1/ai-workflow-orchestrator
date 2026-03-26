@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -6,6 +7,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 from app.models.enums import DocumentStatus
 from app.models.utils import utcnow
+
+if TYPE_CHECKING:
+    from app.models.metadata import DocumentMetadata
 
 
 class Document(Base):
@@ -29,3 +33,9 @@ class Document(Base):
 
     owner: Mapped["User | None"] = relationship(back_populates="documents")
     processing_logs: Mapped[list["ProcessingLog"]] = relationship(back_populates="document")
+    extracted_metadata: Mapped["DocumentMetadata | None"] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        uselist=False,
+        lazy="joined",
+    )

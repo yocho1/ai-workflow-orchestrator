@@ -9,6 +9,7 @@ Implemented a complete document status workflow with state machine validation, e
 ### Backend
 
 #### 1. **Document Status Enum** (`app/models/enums.py`)
+
 - Created `DocumentStatus` enum with 5 states:
   - `uploaded`: Initial state after upload
   - `processing`: Currently being processed
@@ -18,15 +19,18 @@ Implemented a complete document status workflow with state machine validation, e
 - Defined state machine transitions as `VALID_STATUS_TRANSITIONS` dict
 
 #### 2. **Model Updates** (`app/models/document.py`)
+
 - Updated `processing_status` field to use `DocumentStatus` enum
 - Maintains SQLAlchemy compatibility with string storage
 
 #### 3. **Schema Updates** (`app/schemas/document.py`)
+
 - Updated `DocumentBase` schema to use `DocumentStatus` enum
 - Added new `DocumentStatusUpdate` request schema for status update endpoint
 - Strict type validation via Pydantic
 
 #### 4. **Status Service** (`app/services/document_status_service.py`)
+
 - New `DocumentStatusService` class handling:
   - **State machine validation**: `validate_transition()` ensures only valid transitions
   - **Status updates**: `update_status()` atomically updates status + creates audit log
@@ -35,6 +39,7 @@ Implemented a complete document status workflow with state machine validation, e
 - Integration with processing logs for full audit trail
 
 #### 5. **API Endpoint** (`app/api/v1/routes/documents.py`)
+
 - New **POST** `/documents/{document_id}/status` endpoint
   - Request body: `DocumentStatusUpdate` (status + optional message)
   - Response: Updated `DocumentRead` document
@@ -45,8 +50,9 @@ Implemented a complete document status workflow with state machine validation, e
 ### Frontend
 
 #### 1. **StatusBadge Component** (`frontend/src/components/StatusBadge.tsx`)
+
 - Reusable React component displaying document status with:
-  - **Color coding**: 
+  - **Color coding**:
     - `default` (gray) for uploaded
     - `info` (blue) for processing
     - `success` (green) for classified & completed
@@ -55,6 +61,7 @@ Implemented a complete document status workflow with state machine validation, e
   - **MUI Chip**: Material-UI consistent styling
 
 #### 2. **DocumentsPage Updates** (`frontend/src/pages/DocumentsPage.tsx`)
+
 - Replaced plain text status with new `StatusBadge` component
 - Enhanced visual clarity of document status
 - Ready for future status update UI interactions
@@ -62,6 +69,7 @@ Implemented a complete document status workflow with state machine validation, e
 ### Tests
 
 #### 1. **Unit Tests** (`tests/test_document_status_service.py`)
+
 - **Transition validation** (13 tests):
   - All valid transitions documented and tested
   - Invalid transitions properly rejected
@@ -75,6 +83,7 @@ Implemented a complete document status workflow with state machine validation, e
 - **Utility tests**: `get_valid_next_statuses()` correctness
 
 #### 2. **Integration Tests** (`tests/test_document_status_api.py`)
+
 - **API endpoint tests** (11 tests):
   - Valid transitions via HTTP
   - Custom message support
@@ -86,6 +95,7 @@ Implemented a complete document status workflow with state machine validation, e
 - **Error handling**: Invalid enum values rejected properly
 
 #### Coverage:
+
 - ✅ All happy paths
 - ✅ All error cases
 - ✅ State machine correctness
@@ -149,6 +159,7 @@ Frontend will be available at `http://localhost:5173`
 ### 3. Run Tests
 
 #### Unit + Integration Tests:
+
 ```bash
 cd backend
 ..\.venv\Scripts\python.exe -m pytest tests/test_document_status_service.py -v
@@ -156,12 +167,14 @@ cd backend
 ```
 
 #### Run all tests:
+
 ```bash
 cd backend
 ..\.venv\Scripts\python.exe -m pytest tests/ -v
 ```
 
 #### Run with coverage:
+
 ```bash
 cd backend
 ..\.venv\Scripts\python.exe -m pytest tests/ --cov=app --cov-report=html
@@ -218,7 +231,7 @@ curl -X POST http://localhost:8000/api/v1/documents/1/status \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"status": "processing"}'
-  # Error: Cannot transition from 'completed' to 'processing' 
+  # Error: Cannot transition from 'completed' to 'processing'
   # (unless via special endpoint for reprocessing)
 ```
 
@@ -245,6 +258,7 @@ Closes: #1 (assuming this is the first feature)
 ## Files Modified/Created
 
 ### Created:
+
 - ✅ `backend/app/models/enums.py` - Status enum + state machine
 - ✅ `backend/app/services/document_status_service.py` - Status service
 - ✅ `backend/tests/test_document_status_service.py` - Unit tests
@@ -252,6 +266,7 @@ Closes: #1 (assuming this is the first feature)
 - ✅ `frontend/src/components/StatusBadge.tsx` - Status badge component
 
 ### Modified:
+
 - ✅ `backend/app/models/document.py` - Use DocumentStatus enum
 - ✅ `backend/app/schemas/document.py` - Use DocumentStatus enum + add DocumentStatusUpdate
 - ✅ `backend/app/api/v1/routes/documents.py` - Add status update endpoint
@@ -273,6 +288,7 @@ Closes: #1 (assuming this is the first feature)
 ## Next Steps
 
 SPRINT 2 will build on this foundation to add **AI-Driven Actions**:
+
 - Extract structured metadata based on document type
 - Automatically trigger processing based on status transitions
 - Store extracted data (amount, due date, key clauses, etc.)

@@ -19,6 +19,24 @@ class DocumentStatus(str, Enum):
     FAILED = "failed"
 
 
+class DocumentType(str, Enum):
+    """Document type classification.
+    
+    Types:
+    - invoice: Sales invoice or purchase invoice
+    - contract: Legal or business contract
+    - receipt: Purchase receipt or transaction record
+    - report: Business report or financial document
+    - other: Unclassified or miscellaneous document
+    """
+
+    INVOICE = "invoice"
+    CONTRACT = "contract"
+    RECEIPT = "receipt"
+    REPORT = "report"
+    OTHER = "other"
+
+
 # Valid status transitions (state machine)
 # Format: current_status -> list of allowed next statuses
 VALID_STATUS_TRANSITIONS = {
