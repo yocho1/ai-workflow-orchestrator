@@ -92,7 +92,14 @@ class MetadataService:
         payload: MetadataUpdate,
     ):
         """Update metadata fields for manual human review/correction."""
-        metadata = self.metadata_repo.update_by_document_id(db, document_id, payload)
+        update_payload = MetadataUpdate(
+            document_type=payload.document_type,
+            confidence_score=payload.confidence_score,
+            extracted_data=payload.extracted_data,
+            needs_review=False,
+            review_reason=None,
+        )
+        metadata = self.metadata_repo.update_by_document_id(db, document_id, update_payload)
         if metadata:
             db.commit()
         return metadata

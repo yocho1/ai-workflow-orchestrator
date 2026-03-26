@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     openrouter_referer: str = Field(default="http://localhost", alias="OPENROUTER_REFERER")
     openrouter_app_name: str = Field(default="ai-workflow-orchestrator", alias="OPENROUTER_APP_NAME")
     openrouter_mock: bool = Field(default=False, alias="OPENROUTER_MOCK")
+    metadata_review_threshold: float = Field(default=0.8, alias="METADATA_REVIEW_THRESHOLD")
     upload_dir: str = Field(default="uploads", alias="UPLOAD_DIR")
     upload_max_mb: int = Field(default=20, alias="UPLOAD_MAX_MB")
     auth_secret_key: str = Field(default="change-me-in-local-env", alias="AUTH_SECRET_KEY")

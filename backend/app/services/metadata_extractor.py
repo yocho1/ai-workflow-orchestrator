@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.enums import DocumentType
 from app.models.metadata import DocumentMetadata
 from app.repositories.metadata_repository import MetadataRepository
@@ -56,6 +57,7 @@ class MetadataExtractor:
     def __init__(self, ai_service: AiService | None = None) -> None:
         """Initialize extractor with optional AI service dependency."""
         self.ai_service = ai_service or AiService()
+        self.settings = get_settings()
 
     def classify_document(self, text: str) -> tuple[str, float]:
         """Classify document type and return (type, confidence_score)."""
@@ -145,12 +147,21 @@ class MetadataExtractor:
 
             # Step 3: Store metadata
             repo = MetadataRepository()
+            threshold = self.settings.metadata_review_threshold
+            needs_review = confidence < threshold
+            review_reason = (
+                f"Low confidence ({confidence:.2f}) below threshold ({threshold:.2f})"
+                if needs_review
+                else None
+            )
             payload = MetadataCreate(
                 document_type=doc_type,
                 confidence_score=confidence,
                 extracted_data=extracted_data,
                 extraction_model="openai/gpt-4o-mini",
                 extraction_error=None,
+                needs_review=needs_review,
+                review_reason=review_reason,
             )
             metadata = repo.create(db, document_id, payload)
             return metadata
@@ -164,6 +175,8 @@ class MetadataExtractor:
                 extracted_data={},
                 extraction_model="openai/gpt-4o-mini",
                 extraction_error=str(e),
+                needs_review=True,
+                review_reason="Extraction failed and requires manual review",
             )
             metadata = repo.create(db, document_id, payload)
             return metadata

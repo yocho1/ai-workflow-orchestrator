@@ -48,3 +48,12 @@ export type MetadataRecord = {
   created_at: string;
   updated_at: string;
 };
+
+export type MetadataReviewQueueItem = {
+  document_id: number;
+  filename: string;
+  document_type: string;
+  confidence_score: number;
+  review_reason: string | null;
+  updated_at: string;
+};

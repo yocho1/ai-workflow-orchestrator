@@ -11,10 +11,38 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.metadata_repository import MetadataRepository
-from app.schemas.metadata import MetadataRead, MetadataUpdate
+from app.schemas.metadata import MetadataRead, MetadataReviewQueueItem, MetadataUpdate
 from app.services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/documents", tags=["metadata"])
+
+
+@router.get("/metadata/review-queue")
+def get_metadata_review_queue(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """List documents with metadata flagged for manual review."""
+    doc_repo = DocumentRepository()
+    documents = doc_repo.list_by_user(db, current_user.id)
+
+    queue_items: list[dict] = []
+    for document in documents:
+        metadata = document.extracted_metadata
+        if not metadata or not metadata.needs_review:
+            continue
+
+        item = MetadataReviewQueueItem(
+            document_id=document.id,
+            filename=document.filename,
+            document_type=metadata.document_type,
+            confidence_score=metadata.confidence_score,
+            review_reason=metadata.review_reason,
+            updated_at=metadata.updated_at,
+        )
+        queue_items.append(item.model_dump(mode="json"))
+
+    return ok_response(queue_items)
 
 
 @router.get("/{document_id}/metadata", response_model=MetadataRead)

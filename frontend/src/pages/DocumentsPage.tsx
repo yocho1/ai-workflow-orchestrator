@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -26,8 +27,8 @@ import { StatusBadge } from "../components/StatusBadge";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { classifyDocument } from "../services/ai";
 import { listDocuments } from "../services/documents";
-import { extractMetadata, getMetadata, updateMetadata } from "../services/metadata";
-import { DocumentRecord } from "../types/api";
+import { extractMetadata, getMetadata, listMetadataReviewQueue, updateMetadata } from "../services/metadata";
+import { DocumentRecord, MetadataReviewQueueItem } from "../types/api";
 import { getHttpErrorMessage } from "../services/http";
 
 const typeDisplayMap: Record<string, string> = {
@@ -58,6 +59,7 @@ export const DocumentsPage = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const [classifyingId, setClassifyingId] = useState<number | null>(null);
   const [extractingId, setExtractingId] = useState<number | null>(null);
+  const [reviewQueue, setReviewQueue] = useState<MetadataReviewQueueItem[]>([]);
 
   const [reviewOpen, setReviewOpen] = useState<boolean>(false);
   const [reviewLoading, setReviewLoading] = useState<boolean>(false);
@@ -72,7 +74,9 @@ export const DocumentsPage = (): JSX.Element => {
     setLoading(true);
     setError(null);
     try {
-      setDocuments(await listDocuments());
+      const [docs, queue] = await Promise.all([listDocuments(), listMetadataReviewQueue()]);
+      setDocuments(docs);
+      setReviewQueue(queue);
     } catch {
       setError("Failed to load documents.");
     } finally {
@@ -180,6 +184,53 @@ export const DocumentsPage = (): JSX.Element => {
   return (
     <Stack spacing={2.5}>
       {error && <Alert severity="error">{error}</Alert>}
+
+      <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Review Queue
+            </Typography>
+            <Chip
+              size="small"
+              color={reviewQueue.length > 0 ? "warning" : "default"}
+              label={`${reviewQueue.length} pending`}
+            />
+          </Stack>
+          {reviewQueue.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No low-confidence metadata currently needs review.
+            </Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Document</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Confidence</TableCell>
+                  <TableCell>Reason</TableCell>
+                  <TableCell align="right">Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {reviewQueue.map((item) => (
+                  <TableRow key={item.document_id} hover>
+                    <TableCell>{item.filename}</TableCell>
+                    <TableCell>{formatDocumentType(item.document_type)}</TableCell>
+                    <TableCell>{(item.confidence_score * 100).toFixed(0)}%</TableCell>
+                    <TableCell>{item.review_reason ?? "Manual review required"}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" variant="outlined" onClick={() => void openReviewDialog(item.document_id)}>
+                        Review Now
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3 }}>
         <CardContent>

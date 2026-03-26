@@ -8,7 +8,7 @@ contract clauses, dates, etc. Linked 1:1 to Document.
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, JSON
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -44,6 +44,8 @@ class DocumentMetadata(Base):
         String(100), default="openai/gpt-4o-mini", nullable=False
     )
     extraction_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    needs_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

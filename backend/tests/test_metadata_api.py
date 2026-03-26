@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from app.models.enums import DocumentStatus
+from app.repositories.metadata_repository import MetadataRepository
+from app.schemas.metadata import MetadataCreate
 
 
 def _metadata_ns(document_id: int, doc_type: str = "invoice", confidence: float = 0.95):
@@ -174,6 +176,32 @@ class TestMetadataAPI:
             json={"document_type": "invoice"},
         )
         assert response.status_code == 401
+
+    def test_review_queue_returns_flagged_metadata(self, client, logged_in_user, test_document, db):
+        """Review queue should contain low-confidence flagged metadata."""
+        metadata_repo = MetadataRepository()
+        metadata_repo.create(
+            db,
+            test_document.id,
+            MetadataCreate(
+                document_type="invoice",
+                confidence_score=0.55,
+                extracted_data={"amount": 42},
+                needs_review=True,
+                review_reason="Low confidence (0.55) below threshold (0.80)",
+            ),
+        )
+        db.commit()
+
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+        response = client.get("/api/v1/documents/metadata/review-queue", headers=headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert len(data["data"]) == 1
+        assert data["data"][0]["document_id"] == test_document.id
+        assert "Low confidence" in data["data"][0]["review_reason"]
 
 
 class TestMetadataWorkflow:

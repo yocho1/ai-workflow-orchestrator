@@ -28,6 +28,8 @@ class MetadataRepository:
             extracted_data=payload.extracted_data,
             extraction_model=payload.extraction_model,
             extraction_error=payload.extraction_error,
+            needs_review=payload.needs_review,
+            review_reason=payload.review_reason,
         )
         db.add(metadata)
         db.flush()
@@ -44,12 +46,9 @@ class MetadataRepository:
         if not metadata:
             return None
 
-        if payload.document_type is not None:
-            metadata.document_type = payload.document_type
-        if payload.confidence_score is not None:
-            metadata.confidence_score = payload.confidence_score
-        if payload.extracted_data is not None:
-            metadata.extracted_data = payload.extracted_data
+        update_data = payload.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(metadata, key, value)
 
         db.flush()
         return metadata

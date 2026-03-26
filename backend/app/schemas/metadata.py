@@ -14,6 +14,8 @@ class MetadataBase(BaseModel):
         default=0.0, ge=0.0, le=1.0, description="Classification confidence (0-1)"
     )
     extracted_data: dict[str, Any] = Field(default={}, description="Extracted structured data")
+    needs_review: bool = Field(default=False, description="Whether metadata requires manual review")
+    review_reason: str | None = Field(default=None, description="Reason why this metadata was flagged")
 
 
 class MetadataCreate(MetadataBase):
@@ -29,6 +31,8 @@ class MetadataUpdate(BaseModel):
     document_type: str | None = Field(default=None, description="Classified document type")
     confidence_score: float | None = Field(default=None, ge=0.0, le=1.0, description="Classification confidence")
     extracted_data: dict[str, Any] | None = Field(default=None, description="Extracted structured data")
+    needs_review: bool | None = Field(default=None, description="Manual review flag")
+    review_reason: str | None = Field(default=None, description="Manual review reason")
 
 
 class MetadataRead(MetadataBase):
@@ -42,3 +46,14 @@ class MetadataRead(MetadataBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MetadataReviewQueueItem(BaseModel):
+    """Queue item for metadata requiring manual review."""
+
+    document_id: int
+    filename: str
+    document_type: str
+    confidence_score: float
+    review_reason: str | None
+    updated_at: datetime

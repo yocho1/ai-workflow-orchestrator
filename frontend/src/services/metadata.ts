@@ -1,4 +1,4 @@
-import { ApiEnvelope, MetadataRecord } from "../types/api";
+import { ApiEnvelope, MetadataRecord, MetadataReviewQueueItem } from "../types/api";
 import { httpClient } from "./http";
 
 type MetadataUpdatePayload = {
@@ -27,6 +27,13 @@ export async function updateMetadata(
   const response = await httpClient.patch<ApiEnvelope<MetadataRecord>>(
     `/documents/${documentId}/metadata`,
     payload,
+  );
+  return response.data.data;
+}
+
+export async function listMetadataReviewQueue(): Promise<MetadataReviewQueueItem[]> {
+  const response = await httpClient.get<ApiEnvelope<MetadataReviewQueueItem[]>>(
+    "/documents/metadata/review-queue",
   );
   return response.data.data;
 }
