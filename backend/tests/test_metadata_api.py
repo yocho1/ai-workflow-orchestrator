@@ -1,10 +1,24 @@
 """Integration tests for metadata API endpoints."""
 
-import json
-import pytest
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from app.models.enums import DocumentStatus
+
+
+def _metadata_ns(document_id: int, doc_type: str = "invoice", confidence: float = 0.95):
+    return SimpleNamespace(
+        id=1,
+        document_id=document_id,
+        document_type=doc_type,
+        confidence_score=confidence,
+        extracted_data={"amount": 100.0},
+        extraction_model="openai/gpt-4o-mini",
+        extraction_error=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
 
 
 class TestMetadataAPI:
@@ -35,9 +49,11 @@ class TestMetadataAPI:
         response = client.post("/api/v1/documents/1/extract-metadata")
         assert response.status_code == 401
 
-    def test_extract_metadata_no_text(self, client, logged_in_user, test_document):
+    def test_extract_metadata_no_text(self, client, logged_in_user, test_document, db):
         """Test extracting metadata from document with no text."""
         test_document.extracted_text = None
+        db.add(test_document)
+        db.commit()
         headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
 
         response = client.post(
@@ -47,35 +63,23 @@ class TestMetadataAPI:
 
         assert response.status_code == 422
         data = response.json()
-        assert "no extracted text" in data["detail"].lower()
+        assert "no extracted text" in data["error"]["message"].lower()
 
-    @patch("app.services.metadata_service.MetadataService")
+    @patch("app.api.v1.routes.metadata.MetadataService")
     def test_extract_metadata_success(self, mock_service, client, logged_in_user, test_document, db):
         """Test successful metadata extraction."""
-        # Setup mock
         mock_service_instance = Mock()
-        mock_metadata = Mock()
-        mock_metadata.id = 1
-        mock_metadata.document_id = test_document.id
-        mock_metadata.document_type = "invoice"
-        mock_metadata.confidence_score = 0.95
-        mock_metadata.extracted_data = {"amount": 100.00}
-        mock_metadata.extraction_model = "openai/gpt-4o-mini"
-        mock_metadata.extraction_error = None
-        mock_metadata.created_at = "2026-03-26T00:00:00Z"
-        mock_metadata.updated_at = "2026-03-26T00:00:00Z"
+        mock_metadata = _metadata_ns(test_document.id, "invoice", 0.95)
 
         mock_service_instance.process_and_extract.return_value = None
         mock_service_instance.get_metadata.return_value = mock_metadata
         mock_service.return_value = mock_service_instance
 
         headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
-
-        with patch("app.api.v1.routes.metadata.MetadataService", mock_service):
-            response = client.post(
-                f"/api/v1/documents/{test_document.id}/extract-metadata",
-                headers=headers,
-            )
+        response = client.post(
+            f"/api/v1/documents/{test_document.id}/extract-metadata",
+            headers=headers,
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -97,21 +101,22 @@ class TestMetadataAPI:
         assert data["data"]["extracted"] is False
         assert data["data"]["document_type"] is None
 
-    @patch("app.services.metadata_service.MetadataService")
+    @patch("app.api.v1.routes.metadata.MetadataService")
     def test_get_metadata_summary_extracted(self, mock_service, client, logged_in_user, test_document):
         """Test getting metadata summary for extracted metadata."""
         # Setup mock
         mock_service_instance = Mock()
-        mock_metadata = Mock()
-        mock_metadata.document_type = "invoice"
-        mock_metadata.confidence_score = 0.92
-        mock_metadata.extracted_data = {
+        mock_metadata = SimpleNamespace(
+            document_type="invoice",
+            confidence_score=0.92,
+            extracted_data={
             "amount": 250.00,
             "currency": "USD",
             "invoice_number": "INV-123",
             "date": "2026-03-26",
-        }
-        mock_metadata.extraction_error = None
+            },
+            extraction_error=None,
+        )
 
         mock_service.return_value = mock_service_instance
 
@@ -167,18 +172,13 @@ class TestMetadataWorkflow:
 
         with patch("app.api.v1.routes.metadata.MetadataService") as mock_service:
             mock_service_instance = Mock()
-            mock_metadata = Mock()
-            mock_metadata.id = 1
-            mock_metadata.document_id = test_document.id
-            mock_metadata.document_type = "invoice"
-            mock_metadata.confidence_score = 0.96
+            mock_metadata = _metadata_ns(test_document.id, "invoice", 0.96)
             mock_metadata.extracted_data = {
                 "amount": 299.99,
                 "currency": "USD",
                 "invoice_number": "INV-001",
                 "date": "2026-03-26",
             }
-            mock_metadata.extraction_error = None
 
             mock_service_instance.process_and_extract.return_value = None
             mock_service_instance.get_metadata.return_value = mock_metadata
@@ -205,12 +205,9 @@ class TestMetadataWorkflow:
 
         headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
 
-        with patch("app.services.metadata_service.MetadataService") as mock_service:
+        with patch("app.api.v1.routes.metadata.MetadataService") as mock_service:
             mock_service_instance = Mock()
-            mock_metadata = Mock()
-            mock_metadata.document_type = "invoice"
-            mock_metadata.confidence_score = 0.9
-            mock_metadata.extraction_error = None
+            mock_metadata = _metadata_ns(test_document.id, "invoice", 0.9)
 
             mock_service_instance.process_and_extract.return_value = None
             mock_service_instance.get_metadata.return_value = mock_metadata
@@ -221,5 +218,6 @@ class TestMetadataWorkflow:
                 headers=headers,
             )
 
+            assert response.status_code == 200
             # Service should have been called to process and extract
             mock_service_instance.process_and_extract.assert_called_once()

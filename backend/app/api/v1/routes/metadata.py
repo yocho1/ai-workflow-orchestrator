@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.response import ok_response
 from app.core.db import get_db
 from app.core.security import get_current_user
 from app.models.user import User
@@ -85,11 +86,8 @@ def extract_document_metadata(
             detail="Failed to extract metadata",
         )
 
-    return {
-        "success": True,
-        "data": metadata,
-        "error": None,
-    }
+    serialized_metadata = MetadataRead.model_validate(metadata).model_dump(mode="json")
+    return ok_response(serialized_metadata)
 
 
 @router.get("/{document_id}/metadata/summary")
