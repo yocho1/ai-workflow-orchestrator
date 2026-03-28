@@ -51,6 +51,12 @@ type StoredExportFilters = {
   updatedTo: string;
 };
 
+type ActiveFilterChip = {
+  key: string;
+  label: string;
+  onDelete: () => void;
+};
+
 const defaultStoredExportFilters: StoredExportFilters = {
   documentType: "",
   needsReview: "all",
@@ -193,20 +199,52 @@ export const DocumentsPage = (): JSX.Element => {
     });
   }, [documents, reviewQueue, exportDocumentType, exportNeedsReview, exportUpdatedFrom, exportUpdatedTo]);
 
+  const clearExportFilter = (key: "type" | "review" | "from" | "to"): void => {
+    if (key === "type") {
+      setExportDocumentType("");
+      return;
+    }
+    if (key === "review") {
+      setExportNeedsReview("all");
+      return;
+    }
+    if (key === "from") {
+      setExportUpdatedFrom("");
+      return;
+    }
+    setExportUpdatedTo("");
+  };
+
   const activeFilterChips = useMemo(() => {
-    const chips: string[] = [];
+    const chips: ActiveFilterChip[] = [];
 
     if (exportDocumentType) {
-      chips.push(`Type: ${exportDocumentType}`);
+      chips.push({
+        key: "type",
+        label: `Type: ${exportDocumentType}`,
+        onDelete: () => clearExportFilter("type"),
+      });
     }
     if (exportNeedsReview !== "all") {
-      chips.push(exportNeedsReview === "true" ? "Review: needs review" : "Review: no review");
+      chips.push({
+        key: "review",
+        label: exportNeedsReview === "true" ? "Review: needs review" : "Review: no review",
+        onDelete: () => clearExportFilter("review"),
+      });
     }
     if (exportUpdatedFrom) {
-      chips.push(`From: ${exportUpdatedFrom}`);
+      chips.push({
+        key: "from",
+        label: `From: ${exportUpdatedFrom}`,
+        onDelete: () => clearExportFilter("from"),
+      });
     }
     if (exportUpdatedTo) {
-      chips.push(`To: ${exportUpdatedTo}`);
+      chips.push({
+        key: "to",
+        label: `To: ${exportUpdatedTo}`,
+        onDelete: () => clearExportFilter("to"),
+      });
     }
 
     return chips;
@@ -586,7 +624,14 @@ export const DocumentsPage = (): JSX.Element => {
             {activeFilterChips.length === 0 ? (
               <Chip size="small" variant="outlined" label="No active filters" />
             ) : (
-              activeFilterChips.map((label) => <Chip key={label} size="small" label={label} />)
+              activeFilterChips.map((chip) => (
+                <Chip
+                  key={chip.key}
+                  size="small"
+                  label={chip.label}
+                  onDelete={chip.onDelete}
+                />
+              ))
             )}
           </Stack>
 
