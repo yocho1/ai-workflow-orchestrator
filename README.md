@@ -167,7 +167,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - [x] Sprint 4 - AI Integration (RAG + Classification)
 - [x] Sprint 5 - Frontend Dashboard Expansion
 - [x] Sprint 6 - Auth & User Logic
-- [ ] Sprint 7 - QA & Evaluation
+- [x] Sprint 7 - QA & Evaluation
 - [ ] Sprint 8 - Polish & Production
 
 ## Sprint Delivery Notes
@@ -175,9 +175,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - Sprint 1 details: `SPRINT_1.md`
 - Sprint 2 details: `SPRINT_2.md`
 - Sprint 3 details: `SPRINT_3.md`
+- Sprint 8 kickoff + production checklist: `SPRINT_8.md`
 
 ## QA Smoke Scripts
 
 - Sprint 4 AI smoke: `sprint4_smoke_test.py`
 - Sprint 6 auth smoke: `sprint6_auth_smoke_test.py`
 - Sprint 7 QA smoke: `sprint7_qa_smoke_test.py`
+
+## CI Automation
+
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+- Pull request and push validation includes:
+  - backend tests,
+  - frontend production build,
+  - automated Sprint 7 smoke run against a live backend instance.
