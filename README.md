@@ -169,3 +169,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 - [x] Sprint 6 - Auth & User Logic
 - [ ] Sprint 7 - QA & Evaluation
 - [ ] Sprint 8 - Polish & Production
+
+## Sprint Delivery Notes
+
+- Sprint 1 details: `SPRINT_1.md`
+- Sprint 2 details: `SPRINT_2.md`
+- Sprint 3 details: `SPRINT_3.md`

@@ -624,14 +624,17 @@ export const DocumentsPage = (): JSX.Element => {
             {activeFilterChips.length === 0 ? (
               <Chip size="small" variant="outlined" label="No active filters" />
             ) : (
-              activeFilterChips.map((chip) => (
-                <Chip
-                  key={chip.key}
-                  size="small"
-                  label={chip.label}
-                  onDelete={chip.onDelete}
-                />
-              ))
+              <>
+                {activeFilterChips.map((chip) => (
+                  <Chip
+                    key={chip.key}
+                    size="small"
+                    label={chip.label}
+                    onDelete={chip.onDelete}
+                  />
+                ))}
+                <Chip size="small" variant="outlined" label="Clear all" onClick={resetExportFilters} />
+              </>
             )}
           </Stack>
 
