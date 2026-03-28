@@ -164,6 +164,8 @@ export const DocumentsPage = (): JSX.Element => {
     return exportUpdatedFrom > exportUpdatedTo;
   };
 
+  const invalidDateRange = hasInvalidDateRange();
+
   const resetExportFilters = (): void => {
     setExportDocumentType("");
     setExportNeedsReview("all");
@@ -276,7 +278,7 @@ export const DocumentsPage = (): JSX.Element => {
   };
 
   const handleExportCsv = async (): Promise<void> => {
-    if (hasInvalidDateRange()) {
+    if (invalidDateRange) {
       setError("Export filter error: 'Updated from' must be before or equal to 'Updated to'.");
       return;
     }
@@ -298,7 +300,7 @@ export const DocumentsPage = (): JSX.Element => {
   };
 
   const handleExportPdf = async (): Promise<void> => {
-    if (hasInvalidDateRange()) {
+    if (invalidDateRange) {
       setError("Export filter error: 'Updated from' must be before or equal to 'Updated to'.");
       return;
     }
@@ -516,6 +518,8 @@ export const DocumentsPage = (): JSX.Element => {
               value={exportUpdatedFrom}
               onChange={(e) => setExportUpdatedFrom(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              error={invalidDateRange}
+              helperText={invalidDateRange ? "Must be earlier than or equal to 'Updated to'." : " "}
             />
             <TextField
               size="small"
@@ -524,6 +528,8 @@ export const DocumentsPage = (): JSX.Element => {
               value={exportUpdatedTo}
               onChange={(e) => setExportUpdatedTo(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              error={invalidDateRange}
+              helperText={invalidDateRange ? "Must be later than or equal to 'Updated from'." : " "}
             />
             <Button variant="text" onClick={resetExportFilters}>
               Reset Filters
