@@ -33,6 +33,7 @@ import {
   batchExtractMetadata,
   extractMetadata,
   exportMetadataCsv,
+  exportMetadataPdf,
   getMetadata,
   listMetadataReviewQueue,
   updateMetadata,
@@ -202,6 +203,23 @@ export const DocumentsPage = (): JSX.Element => {
     }
   };
 
+  const handleExportPdf = async (): Promise<void> => {
+    setError(null);
+    try {
+      const blob = await exportMetadataPdf();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `metadata_export_${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setError(getHttpErrorMessage(err, "Failed to export PDF."));
+    }
+  };
+
   const openReviewDialog = async (documentId: number): Promise<void> => {
     setReviewOpen(true);
     setReviewLoading(true);
@@ -345,6 +363,13 @@ export const DocumentsPage = (): JSX.Element => {
                 onClick={() => void handleExportCsv()}
               >
                 Export CSV
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={loading}
+                onClick={() => void handleExportPdf()}
+              >
+                Export PDF
               </Button>
               <Button variant="text" onClick={() => void load()}>
                 Refresh

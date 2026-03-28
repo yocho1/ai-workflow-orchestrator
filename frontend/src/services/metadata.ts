@@ -57,3 +57,10 @@ export async function exportMetadataCsv(): Promise<Blob> {
   });
   return response.data;
 }
+
+export async function exportMetadataPdf(): Promise<Blob> {
+  const response = await httpClient.get<Blob>("/documents/metadata/export/pdf", {
+    responseType: "blob",
+  });
+  return response.data;
+}

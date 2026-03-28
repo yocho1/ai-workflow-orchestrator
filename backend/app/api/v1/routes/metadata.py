@@ -8,6 +8,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
 from app.core.response import ok_response
@@ -22,6 +24,29 @@ from app.services.batch_extraction_jobs import BatchExtractionJobService
 from app.services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/documents", tags=["metadata"])
+
+
+def _draw_wrapped_lines(pdf: canvas.Canvas, text: str, x: int, y: int, max_width: int, line_height: int) -> int:
+    """Draw wrapped text and return updated y coordinate."""
+    current = ""
+    words = text.split(" ")
+
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if pdf.stringWidth(candidate, "Helvetica", 10) <= max_width:
+            current = candidate
+            continue
+
+        if current:
+            pdf.drawString(x, y, current)
+            y -= line_height
+        current = word
+
+    if current:
+        pdf.drawString(x, y, current)
+        y -= line_height
+
+    return y
 
 
 @router.get("/metadata/export/csv")
@@ -82,6 +107,80 @@ def export_metadata_csv(
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
+@router.get("/metadata/export/pdf")
+def export_metadata_pdf(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Export all user documents with metadata as a PDF report."""
+    doc_repo = DocumentRepository()
+    documents = doc_repo.list_by_user(db, current_user.id)
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+
+    page_width, page_height = A4
+    margin_x = 36
+    top_y = page_height - 48
+    line_height = 14
+    content_width = int(page_width - (margin_x * 2))
+
+    pdf.setTitle("Metadata Export")
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(margin_x, top_y, "Metadata Export")
+    pdf.setFont("Helvetica", 10)
+    y = top_y - 20
+    y = _draw_wrapped_lines(
+        pdf,
+        f"Generated at {datetime.now(timezone.utc).isoformat()} | Documents: {len(documents)}",
+        margin_x,
+        y,
+        content_width,
+        line_height,
+    )
+    y -= 8
+
+    for index, document in enumerate(documents, start=1):
+        metadata = document.extracted_metadata
+
+        block_lines = [
+            f"{index}. Document #{document.id} - {document.filename}",
+            f"Status: {document.processing_status}",
+            f"Type: {metadata.document_type if metadata else '-'}",
+            f"Confidence: {metadata.confidence_score if metadata else '-'}",
+            f"Needs review: {metadata.needs_review if metadata else '-'}",
+            f"Review reason: {metadata.review_reason if metadata and metadata.review_reason else '-'}",
+            f"Extraction error: {metadata.extraction_error if metadata and metadata.extraction_error else '-'}",
+            "Extracted data JSON:",
+            json.dumps(metadata.extracted_data if metadata else {}, ensure_ascii=False),
+        ]
+
+        estimated_height = (len(block_lines) + 2) * line_height
+        if y - estimated_height < 48:
+            pdf.showPage()
+            pdf.setFont("Helvetica", 10)
+            y = top_y
+
+        pdf.setFont("Helvetica-Bold", 10)
+        y = _draw_wrapped_lines(pdf, block_lines[0], margin_x, y, content_width, line_height)
+        pdf.setFont("Helvetica", 10)
+        for line in block_lines[1:]:
+            y = _draw_wrapped_lines(pdf, line, margin_x, y, content_width, line_height)
+
+        y -= 10
+
+    pdf.save()
+    buffer.seek(0)
+    filename = f"metadata_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
         headers=headers,
     )
 

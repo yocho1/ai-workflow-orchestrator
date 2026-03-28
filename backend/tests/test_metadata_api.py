@@ -318,6 +318,32 @@ class TestMetadataAPI:
         assert row["document_type"] == "invoice"
         assert row["confidence_score"] == "0.91"
 
+    def test_export_metadata_pdf_requires_auth(self, client):
+        response = client.get("/api/v1/documents/metadata/export/pdf")
+        assert response.status_code == 401
+
+    def test_export_metadata_pdf_success(self, client, logged_in_user, test_document, db):
+        metadata_repo = MetadataRepository()
+        metadata_repo.create(
+            db,
+            test_document.id,
+            MetadataCreate(
+                document_type="invoice",
+                confidence_score=0.91,
+                extracted_data={"amount": 199.99, "currency": "USD"},
+                needs_review=False,
+            ),
+        )
+        db.commit()
+
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+        response = client.get("/api/v1/documents/metadata/export/pdf", headers=headers)
+
+        assert response.status_code == 200
+        assert "application/pdf" in response.headers["content-type"]
+        assert "attachment; filename=\"metadata_export_" in response.headers["content-disposition"]
+        assert response.content.startswith(b"%PDF")
+
 
 class TestMetadataWorkflow:
     """Tests for complete metadata extraction workflow."""
