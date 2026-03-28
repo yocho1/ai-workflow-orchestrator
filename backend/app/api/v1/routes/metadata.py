@@ -3,7 +3,7 @@
 import csv
 import io
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -49,14 +49,60 @@ def _draw_wrapped_lines(pdf: canvas.Canvas, text: str, x: int, y: int, max_width
     return y
 
 
+def _record_updated_date(document) -> date:
+    metadata = document.extracted_metadata
+    if metadata and metadata.updated_at:
+        return metadata.updated_at.date()
+    return document.updated_at.date()
+
+
+def _filter_export_documents(
+    documents,
+    document_type: str | None,
+    needs_review: bool | None,
+    updated_from: date | None,
+    updated_to: date | None,
+):
+    filtered = []
+    for document in documents:
+        metadata = document.extracted_metadata
+
+        if document_type and (not metadata or metadata.document_type != document_type):
+            continue
+
+        if needs_review is not None and (not metadata or metadata.needs_review != needs_review):
+            continue
+
+        record_date = _record_updated_date(document)
+        if updated_from and record_date < updated_from:
+            continue
+        if updated_to and record_date > updated_to:
+            continue
+
+        filtered.append(document)
+
+    return filtered
+
+
 @router.get("/metadata/export/csv")
 def export_metadata_csv(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    document_type: str | None = None,
+    needs_review: bool | None = None,
+    updated_from: date | None = None,
+    updated_to: date | None = None,
 ):
     """Export all user documents with metadata as CSV."""
     doc_repo = DocumentRepository()
     documents = doc_repo.list_by_user(db, current_user.id)
+    documents = _filter_export_documents(
+        documents,
+        document_type=document_type,
+        needs_review=needs_review,
+        updated_from=updated_from,
+        updated_to=updated_to,
+    )
 
     output = io.StringIO()
     writer = csv.DictWriter(
@@ -115,10 +161,21 @@ def export_metadata_csv(
 def export_metadata_pdf(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    document_type: str | None = None,
+    needs_review: bool | None = None,
+    updated_from: date | None = None,
+    updated_to: date | None = None,
 ):
     """Export all user documents with metadata as a PDF report."""
     doc_repo = DocumentRepository()
     documents = doc_repo.list_by_user(db, current_user.id)
+    documents = _filter_export_documents(
+        documents,
+        document_type=document_type,
+        needs_review=needs_review,
+        updated_from=updated_from,
+        updated_to=updated_to,
+    )
 
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)

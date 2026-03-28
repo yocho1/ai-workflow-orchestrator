@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from app.models.document import Document
 from app.models.enums import DocumentStatus
 from app.repositories.metadata_repository import MetadataRepository
 from app.schemas.metadata import MetadataCreate
@@ -318,6 +319,57 @@ class TestMetadataAPI:
         assert row["document_type"] == "invoice"
         assert row["confidence_score"] == "0.91"
 
+    def test_export_metadata_csv_with_filters(self, client, logged_in_user, test_document, db):
+        second_document = Document(
+            user_id=logged_in_user["user_id"],
+            filename="test_contract.pdf",
+            content_type="application/pdf",
+            storage_path="/uploads/test_contract.pdf",
+            extracted_text="Contract text",
+            processing_status=DocumentStatus.UPLOADED,
+            document_type=None,
+        )
+        db.add(second_document)
+        db.commit()
+        db.refresh(second_document)
+
+        metadata_repo = MetadataRepository()
+        metadata_repo.create(
+            db,
+            test_document.id,
+            MetadataCreate(
+                document_type="invoice",
+                confidence_score=0.91,
+                extracted_data={"amount": 199.99},
+                needs_review=True,
+                review_reason="Low confidence",
+            ),
+        )
+        metadata_repo.create(
+            db,
+            second_document.id,
+            MetadataCreate(
+                document_type="contract",
+                confidence_score=0.98,
+                extracted_data={"parties": ["A", "B"]},
+                needs_review=False,
+            ),
+        )
+        db.commit()
+
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+        response = client.get(
+            "/api/v1/documents/metadata/export/csv?document_type=invoice&needs_review=true",
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        content = response.content.decode("utf-8-sig")
+        rows = list(csv.DictReader(io.StringIO(content)))
+        assert len(rows) == 1
+        assert int(rows[0]["document_id"]) == test_document.id
+        assert rows[0]["document_type"] == "invoice"
+
     def test_export_metadata_pdf_requires_auth(self, client):
         response = client.get("/api/v1/documents/metadata/export/pdf")
         assert response.status_code == 401
@@ -342,6 +394,30 @@ class TestMetadataAPI:
         assert response.status_code == 200
         assert "application/pdf" in response.headers["content-type"]
         assert "attachment; filename=\"metadata_export_" in response.headers["content-disposition"]
+        assert response.content.startswith(b"%PDF")
+
+    def test_export_metadata_pdf_with_filters(self, client, logged_in_user, test_document, db):
+        metadata_repo = MetadataRepository()
+        metadata_repo.create(
+            db,
+            test_document.id,
+            MetadataCreate(
+                document_type="invoice",
+                confidence_score=0.91,
+                extracted_data={"amount": 199.99},
+                needs_review=False,
+            ),
+        )
+        db.commit()
+
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+        response = client.get(
+            "/api/v1/documents/metadata/export/pdf?document_type=invoice&needs_review=false",
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert "application/pdf" in response.headers["content-type"]
         assert response.content.startswith(b"%PDF")
 
 

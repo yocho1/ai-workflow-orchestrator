@@ -12,6 +12,13 @@ type MetadataUpdatePayload = {
   extracted_data?: Record<string, unknown>;
 };
 
+export type MetadataExportFilters = {
+  document_type?: string;
+  needs_review?: boolean;
+  updated_from?: string;
+  updated_to?: string;
+};
+
 export async function extractMetadata(documentId: number): Promise<MetadataRecord> {
   const response = await httpClient.post<ApiEnvelope<MetadataRecord>>(
     `/documents/${documentId}/extract-metadata`,
@@ -51,15 +58,17 @@ export async function batchExtractMetadata(documentIds: number[]): Promise<Batch
   return response.data.data;
 }
 
-export async function exportMetadataCsv(): Promise<Blob> {
+export async function exportMetadataCsv(filters: MetadataExportFilters = {}): Promise<Blob> {
   const response = await httpClient.get<Blob>("/documents/metadata/export/csv", {
+    params: filters,
     responseType: "blob",
   });
   return response.data;
 }
 
-export async function exportMetadataPdf(): Promise<Blob> {
+export async function exportMetadataPdf(filters: MetadataExportFilters = {}): Promise<Blob> {
   const response = await httpClient.get<Blob>("/documents/metadata/export/pdf", {
+    params: filters,
     responseType: "blob",
   });
   return response.data;

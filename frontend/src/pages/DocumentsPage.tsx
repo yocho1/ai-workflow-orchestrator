@@ -36,6 +36,7 @@ import {
   exportMetadataPdf,
   getMetadata,
   listMetadataReviewQueue,
+  MetadataExportFilters,
   updateMetadata,
 } from "../services/metadata";
 import { DocumentRecord, JobStatusResponse, MetadataReviewQueueItem } from "../types/api";
@@ -82,6 +83,29 @@ export const DocumentsPage = (): JSX.Element => {
   const [reviewDocumentType, setReviewDocumentType] = useState<string>("other");
   const [reviewConfidence, setReviewConfidence] = useState<string>("0");
   const [reviewExtractedJson, setReviewExtractedJson] = useState<string>("{}");
+  const [exportDocumentType, setExportDocumentType] = useState<string>("");
+  const [exportNeedsReview, setExportNeedsReview] = useState<string>("all");
+  const [exportUpdatedFrom, setExportUpdatedFrom] = useState<string>("");
+  const [exportUpdatedTo, setExportUpdatedTo] = useState<string>("");
+
+  const buildExportFilters = (): MetadataExportFilters => {
+    const filters: MetadataExportFilters = {};
+
+    if (exportDocumentType) {
+      filters.document_type = exportDocumentType;
+    }
+    if (exportNeedsReview !== "all") {
+      filters.needs_review = exportNeedsReview === "true";
+    }
+    if (exportUpdatedFrom) {
+      filters.updated_from = exportUpdatedFrom;
+    }
+    if (exportUpdatedTo) {
+      filters.updated_to = exportUpdatedTo;
+    }
+
+    return filters;
+  };
 
   const load = async (): Promise<void> => {
     setLoading(true);
@@ -189,7 +213,7 @@ export const DocumentsPage = (): JSX.Element => {
   const handleExportCsv = async (): Promise<void> => {
     setError(null);
     try {
-      const blob = await exportMetadataCsv();
+      const blob = await exportMetadataCsv(buildExportFilters());
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -206,7 +230,7 @@ export const DocumentsPage = (): JSX.Element => {
   const handleExportPdf = async (): Promise<void> => {
     setError(null);
     try {
-      const blob = await exportMetadataPdf();
+      const blob = await exportMetadataPdf(buildExportFilters());
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -375,6 +399,57 @@ export const DocumentsPage = (): JSX.Element => {
                 Refresh
               </Button>
             </Stack>
+          </Stack>
+
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1}
+            sx={{ mb: 2 }}
+            alignItems={{ xs: "stretch", md: "center" }}
+          >
+            <TextField
+              select
+              size="small"
+              label="Filter Type"
+              value={exportDocumentType}
+              onChange={(e) => setExportDocumentType(e.target.value)}
+              sx={{ minWidth: 170 }}
+            >
+              <MenuItem value="">All types</MenuItem>
+              <MenuItem value="invoice">invoice</MenuItem>
+              <MenuItem value="contract">contract</MenuItem>
+              <MenuItem value="receipt">receipt</MenuItem>
+              <MenuItem value="report">report</MenuItem>
+              <MenuItem value="other">other</MenuItem>
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Review"
+              value={exportNeedsReview}
+              onChange={(e) => setExportNeedsReview(e.target.value)}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="true">Needs review</MenuItem>
+              <MenuItem value="false">No review</MenuItem>
+            </TextField>
+            <TextField
+              size="small"
+              label="Updated from"
+              type="date"
+              value={exportUpdatedFrom}
+              onChange={(e) => setExportUpdatedFrom(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              size="small"
+              label="Updated to"
+              type="date"
+              value={exportUpdatedTo}
+              onChange={(e) => setExportUpdatedTo(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
           </Stack>
 
           {batchJob && (
