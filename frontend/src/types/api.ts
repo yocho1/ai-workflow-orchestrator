@@ -57,3 +57,22 @@ export type MetadataReviewQueueItem = {
   review_reason: string | null;
   updated_at: string;
 };
+
+export type BatchExtractStartResponse = {
+  job_id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  total_documents: number;
+};
+
+export type JobStatusResponse = {
+  job_id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  total_documents: number;
+  processed_documents: number;
+  success_count: number;
+  failure_count: number;
+  progress_percent: number;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+};

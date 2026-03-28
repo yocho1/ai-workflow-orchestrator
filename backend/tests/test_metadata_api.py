@@ -203,6 +203,86 @@ class TestMetadataAPI:
         assert data["data"][0]["document_id"] == test_document.id
         assert "Low confidence" in data["data"][0]["review_reason"]
 
+    @patch("app.services.metadata_extractor.MetadataExtractor.classify_document", return_value=("invoice", 0.9))
+    @patch("app.services.metadata_extractor.MetadataExtractor.extract_invoice_data", return_value={"amount": 100})
+    def test_batch_extract_metadata_starts_job_and_completes(
+        self,
+        _mock_extract,
+        _mock_classify,
+        client,
+        logged_in_user,
+        test_document,
+        db,
+    ):
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+
+        test_document.processing_status = DocumentStatus.PROCESSING
+        db.add(test_document)
+        db.commit()
+
+        start_response = client.post(
+            "/api/v1/documents/batch/extract-metadata",
+            headers=headers,
+            json={"document_ids": [test_document.id]},
+        )
+
+        assert start_response.status_code == 202
+        start_payload = start_response.json()["data"]
+        assert start_payload["job_id"]
+
+        status_response = client.get(
+            f"/api/v1/jobs/{start_payload['job_id']}",
+            headers=headers,
+        )
+        assert status_response.status_code == 200
+        status_payload = status_response.json()["data"]
+        assert status_payload["total_documents"] == 1
+        assert status_payload["processed_documents"] == 1
+        assert status_payload["success_count"] == 1
+
+    def test_batch_extract_metadata_rejects_unowned_document(
+        self,
+        client,
+        logged_in_user,
+        test_document_other_user,
+    ):
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+
+        response = client.post(
+            "/api/v1/documents/batch/extract-metadata",
+            headers=headers,
+            json={"document_ids": [test_document_other_user.id]},
+        )
+
+        assert response.status_code == 404
+
+    def test_get_job_status_requires_owner(self, client, logged_in_user, test_document):
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+
+        start_response = client.post(
+            "/api/v1/documents/batch/extract-metadata",
+            headers=headers,
+            json={"document_ids": [test_document.id]},
+        )
+        assert start_response.status_code == 202
+        job_id = start_response.json()["data"]["job_id"]
+
+        # Create another user and ensure job is hidden.
+        register = client.post(
+            "/api/v1/auth/register",
+            json={"email": "jobviewer@example.com", "password": "testpassword123", "full_name": "Job Viewer"},
+        )
+        assert register.status_code == 201
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"email": "jobviewer@example.com", "password": "testpassword123"},
+        )
+        other_token = login.json()["data"]["token"]["access_token"]
+
+        other_headers = {"Authorization": f"Bearer {other_token}"}
+        status_response = client.get(f"/api/v1/jobs/{job_id}", headers=other_headers)
+        assert status_response.status_code == 404
+
 
 class TestMetadataWorkflow:
     """Tests for complete metadata extraction workflow."""

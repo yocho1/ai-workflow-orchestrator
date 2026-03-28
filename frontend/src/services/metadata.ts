@@ -1,4 +1,9 @@
-import { ApiEnvelope, MetadataRecord, MetadataReviewQueueItem } from "../types/api";
+import {
+  ApiEnvelope,
+  BatchExtractStartResponse,
+  MetadataRecord,
+  MetadataReviewQueueItem,
+} from "../types/api";
 import { httpClient } from "./http";
 
 type MetadataUpdatePayload = {
@@ -34,6 +39,14 @@ export async function updateMetadata(
 export async function listMetadataReviewQueue(): Promise<MetadataReviewQueueItem[]> {
   const response = await httpClient.get<ApiEnvelope<MetadataReviewQueueItem[]>>(
     "/documents/metadata/review-queue",
+  );
+  return response.data.data;
+}
+
+export async function batchExtractMetadata(documentIds: number[]): Promise<BatchExtractStartResponse> {
+  const response = await httpClient.post<ApiEnvelope<BatchExtractStartResponse>>(
+    "/documents/metadata/batch/extract-metadata",
+    { document_ids: documentIds },
   );
   return response.data.data;
 }

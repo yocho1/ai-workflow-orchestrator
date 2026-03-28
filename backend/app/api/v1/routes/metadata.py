@@ -11,7 +11,9 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.metadata_repository import MetadataRepository
+from app.schemas.jobs import BatchExtractRequest, BatchExtractStartResponse
 from app.schemas.metadata import MetadataRead, MetadataReviewQueueItem, MetadataUpdate
+from app.services.batch_extraction_jobs import BatchExtractionJobService
 from app.services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/documents", tags=["metadata"])
@@ -43,6 +45,39 @@ def get_metadata_review_queue(
         queue_items.append(item.model_dump(mode="json"))
 
     return ok_response(queue_items)
+
+
+@router.post("/metadata/batch/extract-metadata", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/batch/extract-metadata", status_code=status.HTTP_202_ACCEPTED)
+def batch_extract_metadata(
+    payload: BatchExtractRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Create and execute a background job that extracts metadata for multiple documents."""
+    doc_repo = DocumentRepository()
+    owned_documents = doc_repo.list_by_user(db, current_user.id)
+    owned_ids = {doc.id for doc in owned_documents}
+    requested_ids = list(dict.fromkeys(payload.document_ids))
+
+    invalid_ids = [doc_id for doc_id in requested_ids if doc_id not in owned_ids]
+    if invalid_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Documents not found or unauthorized: {invalid_ids}",
+        )
+
+    service = BatchExtractionJobService()
+    job = service.create_job(user_id=current_user.id, document_ids=requested_ids)
+    service.run_job(job_id=job.job_id, db=db)
+
+    response = BatchExtractStartResponse(
+        job_id=job.job_id,
+        status=job.status,
+        total_documents=len(requested_ids),
+    )
+    body = ok_response(response.model_dump(mode="json"))
+    return {"success": body["success"], "data": body["data"], "error": body["error"]}
 
 
 @router.get("/{document_id}/metadata", response_model=MetadataRead)

@@ -25,7 +25,11 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
     return fallback;
   }
 
-  const axiosError = error as AxiosError<{ detail?: string; message?: string; error?: { message?: string } }>;
+  const axiosError = error as AxiosError<{
+    detail?: string;
+    message?: string;
+    error?: { message?: string; details?: Array<{ msg?: string; loc?: Array<string | number> }> };
+  }>;
 
   if (axiosError.code === "ERR_NETWORK") {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -42,6 +46,15 @@ export function getHttpErrorMessage(error: unknown, fallback: string): string {
     axiosError.response?.data?.error?.message ??
     axiosError.response?.data?.detail ??
     axiosError.response?.data?.message;
+  const validationDetails = axiosError.response?.data?.error?.details as
+    | Array<{ msg?: string; loc?: Array<string | number> }>
+    | undefined;
+
+  if (apiMessage === "Validation error" && validationDetails && validationDetails.length > 0) {
+    const first = validationDetails[0];
+    const where = first.loc ? ` (${first.loc.join(".")})` : "";
+    return `${first.msg ?? "Validation error"}${where}`;
+  }
   if (apiMessage) {
     return apiMessage;
   }

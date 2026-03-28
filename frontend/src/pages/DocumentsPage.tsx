@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  LinearProgress,
   MenuItem,
   Stack,
   Table,
@@ -27,8 +28,15 @@ import { StatusBadge } from "../components/StatusBadge";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { classifyDocument } from "../services/ai";
 import { listDocuments } from "../services/documents";
-import { extractMetadata, getMetadata, listMetadataReviewQueue, updateMetadata } from "../services/metadata";
-import { DocumentRecord, MetadataReviewQueueItem } from "../types/api";
+import { getJobStatus } from "../services/jobs";
+import {
+  batchExtractMetadata,
+  extractMetadata,
+  getMetadata,
+  listMetadataReviewQueue,
+  updateMetadata,
+} from "../services/metadata";
+import { DocumentRecord, JobStatusResponse, MetadataReviewQueueItem } from "../types/api";
 import { getHttpErrorMessage } from "../services/http";
 
 const typeDisplayMap: Record<string, string> = {
@@ -61,6 +69,8 @@ export const DocumentsPage = (): JSX.Element => {
   const [extractingId, setExtractingId] = useState<number | null>(null);
   const [reviewQueue, setReviewQueue] = useState<MetadataReviewQueueItem[]>([]);
   const [reviewQueueError, setReviewQueueError] = useState<string | null>(null);
+  const [batchJob, setBatchJob] = useState<JobStatusResponse | null>(null);
+  const [batchRunning, setBatchRunning] = useState<boolean>(false);
 
   const [reviewOpen, setReviewOpen] = useState<boolean>(false);
   const [reviewLoading, setReviewLoading] = useState<boolean>(false);
@@ -132,6 +142,45 @@ export const DocumentsPage = (): JSX.Element => {
       setError(getHttpErrorMessage(err, "Failed to extract metadata."));
     } finally {
       setExtractingId(null);
+    }
+  };
+
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+
+  const handleBatchExtract = async (): Promise<void> => {
+    if (documents.length === 0) {
+      return;
+    }
+
+    setBatchRunning(true);
+    setError(null);
+    try {
+      const start = await batchExtractMetadata(documents.map((doc) => doc.id));
+
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        const job = await getJobStatus(start.job_id);
+        setBatchJob(job);
+
+        if (job.status === "completed") {
+          await load();
+          break;
+        }
+
+        if (job.status === "failed") {
+          await load();
+          setError(`Batch extraction failed: ${job.error ?? "Some documents could not be processed."}`);
+          break;
+        }
+
+        await sleep(500);
+      }
+    } catch (err: unknown) {
+      setError(getHttpErrorMessage(err, "Failed to start batch extraction."));
+    } finally {
+      setBatchRunning(false);
     }
   };
 
@@ -264,10 +313,33 @@ export const DocumentsPage = (): JSX.Element => {
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               Document Registry
             </Typography>
-            <Button variant="text" onClick={() => void load()}>
-              Refresh
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="contained"
+                disabled={batchRunning || loading || documents.length === 0}
+                onClick={() => void handleBatchExtract()}
+              >
+                {batchRunning ? "Batch Running..." : "Extract All"}
+              </Button>
+              <Button variant="text" onClick={() => void load()}>
+                Refresh
+              </Button>
+            </Stack>
           </Stack>
+
+          {batchJob && (
+            <Box sx={{ mb: 2 }}>
+              <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Batch job {batchJob.job_id}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {batchJob.processed_documents}/{batchJob.total_documents}
+                </Typography>
+              </Stack>
+              <LinearProgress variant="determinate" value={batchJob.progress_percent} />
+            </Box>
+          )}
 
           {loading ? (
             <Stack direction="row" spacing={1} alignItems="center">
