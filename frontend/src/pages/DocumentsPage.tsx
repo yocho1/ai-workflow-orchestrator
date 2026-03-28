@@ -193,6 +193,25 @@ export const DocumentsPage = (): JSX.Element => {
     });
   }, [documents, reviewQueue, exportDocumentType, exportNeedsReview, exportUpdatedFrom, exportUpdatedTo]);
 
+  const activeFilterChips = useMemo(() => {
+    const chips: string[] = [];
+
+    if (exportDocumentType) {
+      chips.push(`Type: ${exportDocumentType}`);
+    }
+    if (exportNeedsReview !== "all") {
+      chips.push(exportNeedsReview === "true" ? "Review: needs review" : "Review: no review");
+    }
+    if (exportUpdatedFrom) {
+      chips.push(`From: ${exportUpdatedFrom}`);
+    }
+    if (exportUpdatedTo) {
+      chips.push(`To: ${exportUpdatedTo}`);
+    }
+
+    return chips;
+  }, [exportDocumentType, exportNeedsReview, exportUpdatedFrom, exportUpdatedTo]);
+
   const resetExportFilters = (): void => {
     setExportDocumentType("");
     setExportNeedsReview("all");
@@ -561,6 +580,14 @@ export const DocumentsPage = (): JSX.Element => {
             <Button variant="text" onClick={resetExportFilters}>
               Reset Filters
             </Button>
+          </Stack>
+
+          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
+            {activeFilterChips.length === 0 ? (
+              <Chip size="small" variant="outlined" label="No active filters" />
+            ) : (
+              activeFilterChips.map((label) => <Chip key={label} size="small" label={label} />)
+            )}
           </Stack>
 
           {batchJob && (
