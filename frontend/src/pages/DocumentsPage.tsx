@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -166,6 +166,33 @@ export const DocumentsPage = (): JSX.Element => {
 
   const invalidDateRange = hasInvalidDateRange();
 
+  const filteredDocuments = useMemo(() => {
+    const reviewIds = new Set(reviewQueue.map((item) => item.document_id));
+
+    return documents.filter((doc) => {
+      if (exportDocumentType && doc.document_type !== exportDocumentType) {
+        return false;
+      }
+
+      if (exportNeedsReview !== "all") {
+        const needsReview = reviewIds.has(doc.id);
+        if ((exportNeedsReview === "true") !== needsReview) {
+          return false;
+        }
+      }
+
+      const docDate = doc.updated_at.slice(0, 10);
+      if (exportUpdatedFrom && docDate < exportUpdatedFrom) {
+        return false;
+      }
+      if (exportUpdatedTo && docDate > exportUpdatedTo) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [documents, reviewQueue, exportDocumentType, exportNeedsReview, exportUpdatedFrom, exportUpdatedTo]);
+
   const resetExportFilters = (): void => {
     setExportDocumentType("");
     setExportNeedsReview("all");
@@ -244,14 +271,14 @@ export const DocumentsPage = (): JSX.Element => {
     });
 
   const handleBatchExtract = async (): Promise<void> => {
-    if (documents.length === 0) {
+    if (filteredDocuments.length === 0) {
       return;
     }
 
     setBatchRunning(true);
     setError(null);
     try {
-      const start = await batchExtractMetadata(documents.map((doc) => doc.id));
+      const start = await batchExtractMetadata(filteredDocuments.map((doc) => doc.id));
 
       for (let attempt = 0; attempt < 120; attempt += 1) {
         const job = await getJobStatus(start.job_id);
@@ -453,7 +480,7 @@ export const DocumentsPage = (): JSX.Element => {
             <Stack direction="row" spacing={1}>
               <Button
                 variant="contained"
-                disabled={batchRunning || loading || documents.length === 0}
+                disabled={batchRunning || loading || filteredDocuments.length === 0}
                 onClick={() => void handleBatchExtract()}
               >
                 {batchRunning ? "Batch Running..." : "Extract All"}
@@ -567,7 +594,7 @@ export const DocumentsPage = (): JSX.Element => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {documents.map((doc) => (
+                {filteredDocuments.map((doc) => (
                   <TableRow key={doc.id} hover>
                     <TableCell>{doc.id}</TableCell>
                     <TableCell>{doc.filename}</TableCell>
@@ -604,6 +631,15 @@ export const DocumentsPage = (): JSX.Element => {
                     </TableCell>
                   </TableRow>
                 ))}
+                {filteredDocuments.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography variant="body2" color="text.secondary">
+                        No documents match the current filters.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
