@@ -42,6 +42,44 @@ import {
 import { DocumentRecord, JobStatusResponse, MetadataReviewQueueItem } from "../types/api";
 import { getHttpErrorMessage } from "../services/http";
 
+const EXPORT_FILTERS_STORAGE_KEY = "documents_export_filters_v1";
+
+type StoredExportFilters = {
+  documentType: string;
+  needsReview: string;
+  updatedFrom: string;
+  updatedTo: string;
+};
+
+const defaultStoredExportFilters: StoredExportFilters = {
+  documentType: "",
+  needsReview: "all",
+  updatedFrom: "",
+  updatedTo: "",
+};
+
+const loadStoredExportFilters = (): StoredExportFilters => {
+  try {
+    const raw = window.localStorage.getItem(EXPORT_FILTERS_STORAGE_KEY);
+    if (!raw) {
+      return defaultStoredExportFilters;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<StoredExportFilters>;
+    return {
+      documentType: typeof parsed.documentType === "string" ? parsed.documentType : "",
+      needsReview:
+        parsed.needsReview === "true" || parsed.needsReview === "false" || parsed.needsReview === "all"
+          ? parsed.needsReview
+          : "all",
+      updatedFrom: typeof parsed.updatedFrom === "string" ? parsed.updatedFrom : "",
+      updatedTo: typeof parsed.updatedTo === "string" ? parsed.updatedTo : "",
+    };
+  } catch {
+    return defaultStoredExportFilters;
+  }
+};
+
 const typeDisplayMap: Record<string, string> = {
   invoice: "🧾 Invoice",
   receipt: "🧾 Receipt",
@@ -65,6 +103,8 @@ const formatDocumentType = (documentType: string | null): string => {
 export const DocumentsPage = (): JSX.Element => {
   usePageTitle("Documents");
 
+  const storedExportFilters = loadStoredExportFilters();
+
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,10 +123,20 @@ export const DocumentsPage = (): JSX.Element => {
   const [reviewDocumentType, setReviewDocumentType] = useState<string>("other");
   const [reviewConfidence, setReviewConfidence] = useState<string>("0");
   const [reviewExtractedJson, setReviewExtractedJson] = useState<string>("{}");
-  const [exportDocumentType, setExportDocumentType] = useState<string>("");
-  const [exportNeedsReview, setExportNeedsReview] = useState<string>("all");
-  const [exportUpdatedFrom, setExportUpdatedFrom] = useState<string>("");
-  const [exportUpdatedTo, setExportUpdatedTo] = useState<string>("");
+  const [exportDocumentType, setExportDocumentType] = useState<string>(storedExportFilters.documentType);
+  const [exportNeedsReview, setExportNeedsReview] = useState<string>(storedExportFilters.needsReview);
+  const [exportUpdatedFrom, setExportUpdatedFrom] = useState<string>(storedExportFilters.updatedFrom);
+  const [exportUpdatedTo, setExportUpdatedTo] = useState<string>(storedExportFilters.updatedTo);
+
+  useEffect(() => {
+    const payload: StoredExportFilters = {
+      documentType: exportDocumentType,
+      needsReview: exportNeedsReview,
+      updatedFrom: exportUpdatedFrom,
+      updatedTo: exportUpdatedTo,
+    };
+    window.localStorage.setItem(EXPORT_FILTERS_STORAGE_KEY, JSON.stringify(payload));
+  }, [exportDocumentType, exportNeedsReview, exportUpdatedFrom, exportUpdatedTo]);
 
   const buildExportFilters = (): MetadataExportFilters => {
     const filters: MetadataExportFilters = {};
@@ -105,6 +155,21 @@ export const DocumentsPage = (): JSX.Element => {
     }
 
     return filters;
+  };
+
+  const hasInvalidDateRange = (): boolean => {
+    if (!exportUpdatedFrom || !exportUpdatedTo) {
+      return false;
+    }
+    return exportUpdatedFrom > exportUpdatedTo;
+  };
+
+  const resetExportFilters = (): void => {
+    setExportDocumentType("");
+    setExportNeedsReview("all");
+    setExportUpdatedFrom("");
+    setExportUpdatedTo("");
+    setError(null);
   };
 
   const load = async (): Promise<void> => {
@@ -211,6 +276,11 @@ export const DocumentsPage = (): JSX.Element => {
   };
 
   const handleExportCsv = async (): Promise<void> => {
+    if (hasInvalidDateRange()) {
+      setError("Export filter error: 'Updated from' must be before or equal to 'Updated to'.");
+      return;
+    }
+
     setError(null);
     try {
       const blob = await exportMetadataCsv(buildExportFilters());
@@ -228,6 +298,11 @@ export const DocumentsPage = (): JSX.Element => {
   };
 
   const handleExportPdf = async (): Promise<void> => {
+    if (hasInvalidDateRange()) {
+      setError("Export filter error: 'Updated from' must be before or equal to 'Updated to'.");
+      return;
+    }
+
     setError(null);
     try {
       const blob = await exportMetadataPdf(buildExportFilters());
@@ -450,6 +525,9 @@ export const DocumentsPage = (): JSX.Element => {
               onChange={(e) => setExportUpdatedTo(e.target.value)}
               InputLabelProps={{ shrink: true }}
             />
+            <Button variant="text" onClick={resetExportFilters}>
+              Reset Filters
+            </Button>
           </Stack>
 
           {batchJob && (
