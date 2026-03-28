@@ -32,6 +32,7 @@ import { getJobStatus } from "../services/jobs";
 import {
   batchExtractMetadata,
   extractMetadata,
+  exportMetadataCsv,
   getMetadata,
   listMetadataReviewQueue,
   updateMetadata,
@@ -184,6 +185,23 @@ export const DocumentsPage = (): JSX.Element => {
     }
   };
 
+  const handleExportCsv = async (): Promise<void> => {
+    setError(null);
+    try {
+      const blob = await exportMetadataCsv();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `metadata_export_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setError(getHttpErrorMessage(err, "Failed to export CSV."));
+    }
+  };
+
   const openReviewDialog = async (documentId: number): Promise<void> => {
     setReviewOpen(true);
     setReviewLoading(true);
@@ -320,6 +338,13 @@ export const DocumentsPage = (): JSX.Element => {
                 onClick={() => void handleBatchExtract()}
               >
                 {batchRunning ? "Batch Running..." : "Extract All"}
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={loading}
+                onClick={() => void handleExportCsv()}
+              >
+                Export CSV
               </Button>
               <Button variant="text" onClick={() => void load()}>
                 Refresh

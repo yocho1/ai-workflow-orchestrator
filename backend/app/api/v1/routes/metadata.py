@@ -1,8 +1,13 @@
 """API routes for document metadata operations."""
 
+import csv
+import io
+import json
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.response import ok_response
@@ -17,6 +22,68 @@ from app.services.batch_extraction_jobs import BatchExtractionJobService
 from app.services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/documents", tags=["metadata"])
+
+
+@router.get("/metadata/export/csv")
+def export_metadata_csv(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Export all user documents with metadata as CSV."""
+    doc_repo = DocumentRepository()
+    documents = doc_repo.list_by_user(db, current_user.id)
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=[
+            "document_id",
+            "filename",
+            "processing_status",
+            "document_type",
+            "confidence_score",
+            "needs_review",
+            "review_reason",
+            "extraction_error",
+            "extracted_data_json",
+            "updated_at",
+        ],
+    )
+    writer.writeheader()
+
+    for document in documents:
+        metadata = document.extracted_metadata
+        writer.writerow(
+            {
+                "document_id": document.id,
+                "filename": document.filename,
+                "processing_status": str(document.processing_status),
+                "document_type": metadata.document_type if metadata else "",
+                "confidence_score": metadata.confidence_score if metadata else "",
+                "needs_review": metadata.needs_review if metadata else "",
+                "review_reason": metadata.review_reason if metadata else "",
+                "extraction_error": metadata.extraction_error if metadata else "",
+                "extracted_data_json": json.dumps(
+                    metadata.extracted_data if metadata else {},
+                    ensure_ascii=False,
+                ),
+                "updated_at": (
+                    metadata.updated_at.isoformat() if metadata and metadata.updated_at else document.updated_at.isoformat()
+                ),
+            }
+        )
+
+    output.seek(0)
+    filename = f"metadata_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+
+    # Prefix BOM for better compatibility with spreadsheet tools.
+    csv_content = "\ufeff" + output.getvalue()
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
 
 
 @router.get("/metadata/review-queue")

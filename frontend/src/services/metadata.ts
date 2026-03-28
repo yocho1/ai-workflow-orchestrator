@@ -50,3 +50,10 @@ export async function batchExtractMetadata(documentIds: number[]): Promise<Batch
   );
   return response.data.data;
 }
+
+export async function exportMetadataCsv(): Promise<Blob> {
+  const response = await httpClient.get<Blob>("/documents/metadata/export/csv", {
+    responseType: "blob",
+  });
+  return response.data;
+}

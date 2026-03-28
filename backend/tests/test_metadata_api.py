@@ -1,5 +1,7 @@
 """Integration tests for metadata API endpoints."""
 
+import csv
+import io
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -282,6 +284,39 @@ class TestMetadataAPI:
         other_headers = {"Authorization": f"Bearer {other_token}"}
         status_response = client.get(f"/api/v1/jobs/{job_id}", headers=other_headers)
         assert status_response.status_code == 404
+
+    def test_export_metadata_csv_requires_auth(self, client):
+        response = client.get("/api/v1/documents/metadata/export/csv")
+        assert response.status_code == 401
+
+    def test_export_metadata_csv_success(self, client, logged_in_user, test_document, db):
+        metadata_repo = MetadataRepository()
+        metadata_repo.create(
+            db,
+            test_document.id,
+            MetadataCreate(
+                document_type="invoice",
+                confidence_score=0.91,
+                extracted_data={"amount": 199.99, "currency": "USD"},
+                needs_review=False,
+            ),
+        )
+        db.commit()
+
+        headers = {"Authorization": f"Bearer {logged_in_user['token']}"}
+        response = client.get("/api/v1/documents/metadata/export/csv", headers=headers)
+
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        assert "attachment; filename=\"metadata_export_" in response.headers["content-disposition"]
+
+        content = response.content.decode("utf-8-sig")
+        rows = list(csv.DictReader(io.StringIO(content)))
+        assert len(rows) >= 1
+        row = next(r for r in rows if int(r["document_id"]) == test_document.id)
+        assert row["filename"] == test_document.filename
+        assert row["document_type"] == "invoice"
+        assert row["confidence_score"] == "0.91"
 
 
 class TestMetadataWorkflow:
