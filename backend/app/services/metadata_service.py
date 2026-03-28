@@ -39,6 +39,16 @@ class MetadataService:
         """
         text = extracted_text or document.extracted_text or ""
 
+        if not text:
+            self.status_service.update_status(
+                db,
+                document.id,
+                DocumentStatus.FAILED,
+                "No text available for extraction",
+            )
+            db.commit()
+            return
+
         try:
             current_status = document.processing_status
 
@@ -54,21 +64,23 @@ class MetadataService:
                     DocumentStatus.PROCESSING,
                     "Preparing document for metadata extraction",
                 )
+                current_status = DocumentStatus.PROCESSING
 
             # Extract metadata
             metadata = self.extractor.extract_metadata(db, document.id, text)
 
             # Move to classified only when coming from processing.
-            if document.processing_status == DocumentStatus.PROCESSING:
+            if current_status == DocumentStatus.PROCESSING:
                 self.status_service.update_status(
                     db,
                     document.id,
                     DocumentStatus.CLASSIFIED,
                     f"Document classified as: {metadata.document_type} (confidence: {metadata.confidence_score:.2f})",
                 )
+                current_status = DocumentStatus.CLASSIFIED
 
             # Complete when document is in classified state.
-            if document.processing_status == DocumentStatus.CLASSIFIED:
+            if current_status == DocumentStatus.CLASSIFIED:
                 self.status_service.update_status(
                     db,
                     document.id,
@@ -89,15 +101,6 @@ class MetadataService:
                 )
             db.commit()
             raise
-        except Exception as e:
-            # Transition to failed on error
-            self.status_service.update_status(
-                db,
-                document.id,
-                DocumentStatus.FAILED,
-                f"Metadata extraction failed: {str(e)}",
-            )
-            db.commit()
 
     def get_metadata(self, db: Session, document_id: int):
         """Retrieve metadata for a document."""

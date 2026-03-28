@@ -220,7 +220,7 @@ class TestMetadataService:
         mock_extractor_instance.extract_metadata.assert_called_once()
 
         # Verify status transitions
-        assert mock_status_instance.update_status.call_count == 2
+        assert mock_status_instance.update_status.call_count == 3
 
     @patch("app.services.metadata_service.MetadataExtractor")
     @patch("app.services.metadata_service.DocumentStatusService")
