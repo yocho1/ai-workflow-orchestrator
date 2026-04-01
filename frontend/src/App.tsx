@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Box, Drawer } from "@mui/material";
+import { Box, Drawer, useMediaQuery, useTheme } from "@mui/material";
 
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -14,7 +14,14 @@ import { useUIStore } from "./state/uiStore";
 
 const drawerWidth = 260;
 
-function App(): JSX.Element {
+type AppProps = {
+  colorMode: "light" | "dark";
+  onToggleColorMode: () => void;
+};
+
+function App({ colorMode, onToggleColorMode }: AppProps): JSX.Element {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { sidebarOpen, activeSection, setSidebarOpen, setActiveSection } = useUIStore();
   const { token, user, isAuthReady, setAuth, setUser, markAuthReady, logout } = useAuthStore();
 
@@ -75,28 +82,42 @@ function App(): JSX.Element {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", position: "relative" }}>
       <Drawer
-        variant="persistent"
+        variant={isMobile ? "temporary" : "persistent"}
         open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        ModalProps={{ keepMounted: true }}
         sx={{
           width: drawerWidth,
           flexShrink: 0,
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
+            border: "none",
+            background:
+              "linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(15, 118, 110, 0.95) 65%, rgba(21, 94, 117, 0.96) 100%)",
           },
         }}
       >
-        <Sidebar activeSection={activeSection} onSelectSection={setActiveSection} />
+        <Sidebar
+          activeSection={activeSection}
+          onSelectSection={(section) => {
+            setActiveSection(section);
+            if (isMobile) {
+              setSidebarOpen(false);
+            }
+          }}
+        />
       </Drawer>
 
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          transition: "margin 0.2s ease",
-          marginLeft: sidebarOpen ? 0 : `-${drawerWidth}px`,
+          position: "relative",
+          transition: "margin 0.22s ease",
+          marginLeft: !isMobile && !sidebarOpen ? `-${drawerWidth}px` : 0,
         }}
       >
         <Header
@@ -104,8 +125,14 @@ function App(): JSX.Element {
           userName={user.full_name}
           sectionTitle={sectionTitleMap[activeSection]}
           onLogout={logout}
+          colorMode={colorMode}
+          onToggleColorMode={onToggleColorMode}
         />
-        <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box
+          sx={{
+            p: { xs: 1.5, sm: 2.5, md: 3 },
+          }}
+        >
           {pageContent}
         </Box>
       </Box>

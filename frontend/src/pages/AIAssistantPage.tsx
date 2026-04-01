@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Avatar,
+  Box,
   Button,
   Card,
   CardContent,
   Divider,
   Grid,
+  LinearProgress,
   MenuItem,
+  Paper,
+  Skeleton,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 
 import { usePageTitle } from "../hooks/usePageTitle";
 import { askDocument, classifyDocument } from "../services/ai";
@@ -35,15 +42,17 @@ export const AIAssistantPage = (): JSX.Element => {
   usePageTitle("AI Assistant");
 
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState<boolean>(true);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<AskDocumentResult | null>(null);
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string; answer?: AskDocumentResult }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [classifying, setClassifying] = useState(false);
 
   useEffect(() => {
     const load = async (): Promise<void> => {
+      setLoadingDocuments(true);
       try {
         const data = await listDocuments();
         setDocuments(data);
@@ -52,6 +61,8 @@ export const AIAssistantPage = (): JSX.Element => {
         }
       } catch (error) {
         setError(getHttpErrorMessage(error, "Failed to load documents."));
+      } finally {
+        setLoadingDocuments(false);
       }
     };
 
@@ -66,8 +77,12 @@ export const AIAssistantPage = (): JSX.Element => {
 
     setAsking(true);
     setError(null);
+    const userMessage = question.trim();
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setQuestion("");
     try {
-      setAnswer(await askDocument(Number(selectedDocumentId), question.trim()));
+      const result = await askDocument(Number(selectedDocumentId), userMessage);
+      setMessages((prev) => [...prev, { role: "assistant", content: result.answer, answer: result }]);
     } catch (error) {
       setError(getHttpErrorMessage(error, "AI question failed."));
     } finally {
@@ -104,19 +119,23 @@ export const AIAssistantPage = (): JSX.Element => {
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                select
-                label="Document"
-                value={selectedDocumentId}
-                onChange={(event) => setSelectedDocumentId(event.target.value)}
-                fullWidth
-              >
-                {documents.map((doc) => (
-                  <MenuItem key={doc.id} value={String(doc.id)}>
-                    #{doc.id} - {doc.filename}
-                  </MenuItem>
-                ))}
-              </TextField>
+              {loadingDocuments ? (
+                <Skeleton variant="rounded" height={40} />
+              ) : (
+                <TextField
+                  select
+                  label="Document"
+                  value={selectedDocumentId}
+                  onChange={(event) => setSelectedDocumentId(event.target.value)}
+                  fullWidth
+                >
+                  {documents.map((doc) => (
+                    <MenuItem key={doc.id} value={String(doc.id)}>
+                      #{doc.id} - {doc.filename}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Grid>
             <Grid size={{ xs: 12, md: 8 }}>
               <TextField
@@ -125,6 +144,12 @@ export const AIAssistantPage = (): JSX.Element => {
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder="What is the total amount due?"
                 fullWidth
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void onAsk();
+                  }
+                }}
               />
             </Grid>
           </Grid>
@@ -138,18 +163,83 @@ export const AIAssistantPage = (): JSX.Element => {
             </Button>
           </Stack>
 
-          {answer && (
-            <Stack spacing={1.5} sx={{ mt: 2.5 }}>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                Answer
-              </Typography>
-              <Typography variant="body1">{answer.answer}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Confidence: {formatConfidence(answer.confidence)}
-              </Typography>
-            </Stack>
-          )}
+          <Divider sx={{ my: 2.5 }} />
+
+          <Stack spacing={1.5} sx={{ maxHeight: 420, overflowY: "auto", pr: 0.5 }}>
+            {messages.length === 0 ? (
+              <Paper variant="outlined" sx={{ p: 2.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Start a conversation
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Ask questions about a selected document and the assistant will answer with confidence details.
+                </Typography>
+              </Paper>
+            ) : (
+              messages.map((message, index) => (
+                <Stack
+                  key={`${message.role}-${index}`}
+                  direction="row"
+                  spacing={1.2}
+                  justifyContent={message.role === "user" ? "flex-end" : "flex-start"}
+                >
+                  {message.role === "assistant" && (
+                    <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32 }}>
+                      <AutoAwesomeRoundedIcon fontSize="small" />
+                    </Avatar>
+                  )}
+                  <Paper
+                    sx={{
+                      p: 1.5,
+                      maxWidth: "78%",
+                      bgcolor: message.role === "user" ? "primary.main" : "background.paper",
+                      color: message.role === "user" ? "#fff" : "text.primary",
+                      borderRadius: 2.5,
+                    }}
+                  >
+                    <Typography variant="body2">{message.content}</Typography>
+                    {message.answer && (
+                      <Box sx={{ mt: 1.2 }}>
+                        <Typography variant="caption" color={message.role === "user" ? "rgba(255,255,255,0.8)" : "text.secondary"}>
+                          Confidence: {formatConfidence(message.answer.confidence)}
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={Math.max(0, Math.min(100, (message.answer.confidence ?? 0) * 100))}
+                          sx={{ mt: 0.75, height: 6, borderRadius: 999 }}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                          Sources: {Array.from({ length: Math.max(1, message.answer.context_chunks_used) })
+                            .map((_, i) => `Doc #${message.answer?.document_id} chunk ${i + 1}`)
+                            .join(" • ")}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                  {message.role === "user" && (
+                    <Avatar sx={{ bgcolor: "secondary.main", width: 32, height: 32 }}>
+                      <PersonRoundedIcon fontSize="small" />
+                    </Avatar>
+                  )}
+                </Stack>
+              ))
+            )}
+
+            {asking && (
+              <Stack direction="row" spacing={1.2} alignItems="center">
+                <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32 }}>
+                  <AutoAwesomeRoundedIcon fontSize="small" />
+                </Avatar>
+                <Paper sx={{ p: 1.5, borderRadius: 2.5 }}>
+                  <Stack direction="row" spacing={0.75}>
+                    <Skeleton variant="circular" width={8} height={8} />
+                    <Skeleton variant="circular" width={8} height={8} />
+                    <Skeleton variant="circular" width={8} height={8} />
+                  </Stack>
+                </Paper>
+              </Stack>
+            )}
+          </Stack>
         </CardContent>
       </Card>
     </Stack>

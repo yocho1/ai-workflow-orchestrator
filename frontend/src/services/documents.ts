@@ -33,3 +33,19 @@ export async function uploadDocument(file: File): Promise<DocumentRecord> {
 
   return response.data.data;
 }
+
+export async function deleteDocument(documentId: number): Promise<void> {
+  await httpClient.delete<ApiEnvelope<{ id: number; deleted: boolean }>>(`/documents/${documentId}`);
+}
+
+export async function updateDocumentStatus(
+  documentId: number,
+  status: string,
+  message?: string,
+): Promise<DocumentRecord> {
+  const response = await httpClient.post<ApiEnvelope<DocumentRecord>>(`/documents/${documentId}/status`, {
+    status,
+    message,
+  });
+  return response.data.data;
+}
